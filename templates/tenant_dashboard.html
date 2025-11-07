@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tenant Dashboard - Property Rental System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="dashboard-header">
+            <h1>Tenant Dashboard</h1>
+            <div class="user-info">
+                <span>Welcome, {{ user_name }}</span>
+                <a href="/logout" class="btn logout-btn">Logout</a>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showTab('myRentals')">My Rentals</button>
+            <button class="tab-btn" onclick="showTab('browse')">Browse Properties</button>
+        </div>
+
+        <!-- My Rentals Tab -->
+        <div id="myRentals" class="tab-content active">
+            <h2>My Rentals</h2>
+            <div id="myRentalsContainer"></div>
+        </div>
+
+        <!-- Browse Tab -->
+        <div id="browse" class="tab-content">
+            <h2>Browse Available Properties</h2>
+            <div id="browseContainer"></div>
+        </div>
+    </div>
+
+    <!-- Review Modal -->
+    <div id="reviewModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3>Write a Review</h3>
+            <form id="reviewForm">
+                <input type="hidden" id="review_property_id">
+                <label for="rating">Rating (1-5):</label>
+                <select id="rating" required>
+                    <option value="">Select Rating</option>
+                    <option value="1">1 ⭐</option>
+                    <option value="2">2 ⭐</option>
+                    <option value="3">3 ⭐</option>
+                    <option value="4">4 ⭐</option>
+                    <option value="5">5 ⭐</option>
+                </select>
+                <textarea id="comment" placeholder="Write your review..." rows="4"></textarea>
+                <button type="submit" class="btn btn-tenant">Submit Review</button>
+                <button type="button" class="btn" onclick="closeReviewModal()">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+            
+            if (tabName === 'browse') {
+                loadBrowseProperties();
+            }
+        }
+
+        async function loadMyRentals() {
+            try {
+                const response = await fetch('/api/tenant/rentals');
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayMyRentals(result.data);
+                } else {
+                    alert('Failed to load rentals: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function displayMyRentals(rentals) {
+            const container = document.getElementById('myRentalsContainer');
+            container.innerHTML = '';
+            
+            if (rentals.length === 0) {
+                container.innerHTML = '<p>You have no rentals. Browse properties to find one!</p>';
+                return;
+            }
+            
+            rentals.forEach(rental => {
+                const statusClass = `status-${rental.status.toLowerCase()}`;
+                const isCurrent = rental.end_date === null;
+                
+                const card = document.createElement('div');
+                card.className = 'property-card';
+                card.innerHTML = `
+                    <h3>${rental.address}</h3>
+                    <p><strong>City:</strong> ${rental.city || 'N/A'}</p>
+                    <p><strong>Description:</strong> ${rental.description || 'N/A'}</p>
+                    <p><strong>Size:</strong> ${rental.sq_footage || 'N/A'} sq ft</p>
+                    <p><strong>Monthly Rent:</strong> ₹${rental.monthly_rent}</p>
+                    <p><strong>Status:</strong> <span class="status-badge ${statusClass}">${isCurrent ? 'Current Rental' : 'Past Rental'}</span></p>
+                    
+                    <div class="owner-info">
+                        <h4>Owner Information</h4>
+                        <p><strong>Name:</strong> ${rental.owner_name}</p>
+                        <p><strong>Phone:</strong> ${rental.owner_phone || 'N/A'}</p>
+                    </div>
+                    
+                    <div class="rental-info">
+                        <h4>Rental Details</h4>
+                        <p><strong>Start Date:</strong> ${rental.start_date}</p>
+                        ${rental.end_date ? `<p><strong>End Date:</strong> ${rental.end_date}</p>` : ''}
+                        ${isCurrent && rental.rent_due ? '<p class="alert">⚠️ Rent is due this month!</p>' : ''}
+                    </div>
+                    
+                    ${rental.payments && rental.payments.length > 0 ? `
+                        <div class="payments">
+                            <h4>Payment History</h4>
+                            ${rental.payments.map(p => `
+                                <p>${p.month_year}: ₹${p.amount} - <strong>${p.status}</strong> (${p.payment_date})</p>
+                            `).join('')}
+                        </div>
+                    ` : '<p><em>No payment history</em></p>'}
+                    
+                    <div class="actions">
+                        <button class="btn btn-tenant" onclick="openReviewModal(${rental.property_id})">Write Review</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function openReviewModal(propertyId) {
+            document.getElementById('review_property_id').value = propertyId;
+            document.getElementById('reviewModal').style.display = 'flex';
+        }
+
+        function closeReviewModal() {
+            document.getElementById('reviewModal').style.display = 'none';
+            document.getElementById('reviewForm').reset();
+        }
+
+        document.getElementById('reviewForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const data = {
+                property_id: document.getElementById('review_property_id').value,
+                rating: document.getElementById('rating').value,
+                comment: document.getElementById('comment').value
+            };
+            
+            try {
+                const response = await fetch('/api/tenant/review', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(result.message || 'Review submitted successfully!');
+                    closeReviewModal();
+                    loadMyRentals();
+                } else {
+                    alert('Failed to submit review: ' + (result.error || result.message));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        });
+
+        async function loadBrowseProperties() {
+            try {
+                const response = await fetch('/api/properties/browse');
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayBrowseProperties(result.data);
+                }
+            } catch (error) {
+                console.error('Error loading browse properties:', error);
+            }
+        }
+
+        function displayBrowseProperties(properties) {
+            const container = document.getElementById('browseContainer');
+            container.innerHTML = '';
+            
+            // Filter only available properties
+            const availableProps = properties.filter(p => p.status === 'Available');
+            
+            if (availableProps.length === 0) {
+                container.innerHTML = '<p>No available properties at the moment.</p>';
+                return;
+            }
+            
+            availableProps.forEach(prop => {
+                const avgRating = prop.avg_rating ? prop.avg_rating.toFixed(1) : 'N/A';
+                
+                const card = document.createElement('div');
+                card.className = 'property-card';
+                card.innerHTML = `
+                    <h3>${prop.address}</h3>
+                    <p><strong>City:</strong> ${prop.city || 'N/A'}</p>
+                    <p><strong>Description:</strong> ${prop.description || 'N/A'}</p>
+                    <p><strong>Size:</strong> ${prop.sq_footage || 'N/A'} sq ft</p>
+                    <p><strong>Monthly Rent:</strong> ₹${prop.monthly_rent}</p>
+                    <p><strong>Rating:</strong> ${avgRating} ⭐</p>
+                    <p><strong>Owner:</strong> ${prop.owner_name} - ${prop.owner_phone || 'N/A'}</p>
+                    <p><span class="status-badge status-available">Available</span></p>
+                    
+                    <div class="actions">
+                        <button class="btn btn-tenant" onclick="requestRent(${prop.property_id})">Request to Rent</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        async function requestRent(propertyId) {
+            if (!confirm('Do you want to request to rent this property?')) return;
+            
+            try {
+                const response = await fetch('/api/tenant/request-rent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ property_id: propertyId })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(result.message || 'Rental request successful!');
+                    loadBrowseProperties();
+                    loadMyRentals();
+                } else {
+                    alert('Request failed: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Load rentals on page load
+        loadMyRentals();
+    </script>
+
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .alert {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: #666;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab-btn.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+        }
+    </style>
+</body>
+</html>

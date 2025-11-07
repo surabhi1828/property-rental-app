@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Rental System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Property Rental Management System</h1>
+        <div class="role-selection">
+            <h2>Select Your Role</h2>
+            <div class="role-buttons">
+                <button onclick="window.location.href='/login/admin'" class="btn btn-admin">
+                    <span style="font-size: 40px;">🔐</span><br>Admin
+                </button>
+                <button onclick="window.location.href='/login/owner'" class="btn btn-owner">
+                    <span style="font-size: 40px;">🏠</span><br>Property Owner
+                </button>
+                <button onclick="window.location.href='/login/tenant'" class="btn btn-tenant">
+                    <span style="font-size: 40px;">👤</span><br>Tenant
+                </button>
+            </div>
+            <div class="signup-link">
+                <p>Don't have an account? <a href="/signup">Sign Up</a></p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

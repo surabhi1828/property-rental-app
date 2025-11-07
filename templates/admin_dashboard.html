@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Property Rental System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="dashboard-header">
+            <h1>Admin Dashboard</h1>
+            <div class="user-info">
+                <span>Welcome, {{ user_name }}</span>
+                <a href="/logout" class="btn logout-btn">Logout</a>
+            </div>
+        </div>
+
+        <h2>Properties Overview</h2>
+        <div id="propertiesContainer"></div>
+    </div>
+
+    <script>
+        async function loadOverview() {
+            try {
+                const response = await fetch('/api/admin/overview');
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayProperties(result.data);
+                } else {
+                    alert('Failed to load data: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error loading data: ' + error.message);
+            }
+        }
+
+        function displayProperties(properties) {
+            const container = document.getElementById('propertiesContainer');
+            container.innerHTML = '';
+            
+            properties.forEach(prop => {
+                const statusClass = `status-${prop.status.toLowerCase()}`;
+                const avgRating = prop.avg_rating ? prop.avg_rating.toFixed(1) : 'N/A';
+                
+                const card = document.createElement('div');
+                card.className = 'property-card';
+                card.innerHTML = `
+                    <h3>${prop.address}</h3>
+                    <p><strong>City:</strong> ${prop.city || 'N/A'}</p>
+                    <p><strong>Description:</strong> ${prop.description || 'N/A'}</p>
+                    <p><strong>Size:</strong> ${prop.sq_footage || 'N/A'} sq ft</p>
+                    <p><strong>Monthly Rent:</strong> ₹${prop.monthly_rent}</p>
+                    <p><strong>Status:</strong> <span class="status-badge ${statusClass}">${prop.status}</span></p>
+                    <p><strong>Average Rating:</strong> ${avgRating} ⭐</p>
+                    
+                    <div class="owner-info">
+                        <h4>Owner Information</h4>
+                        <p><strong>Name:</strong> ${prop.owner_name}</p>
+                        <p><strong>Email:</strong> ${prop.owner_email || 'N/A'}</p>
+                        <p><strong>Phone:</strong> ${prop.owner_phone || 'N/A'}</p>
+                    </div>
+                    
+                    ${prop.tenant_name ? `
+                        <div class="tenant-info">
+                            <h4>Current Tenant</h4>
+                            <p><strong>Name:</strong> ${prop.tenant_name}</p>
+                            <p><strong>Email:</strong> ${prop.tenant_email || 'N/A'}</p>
+                            <p><strong>Start Date:</strong> ${prop.start_date || 'N/A'}</p>
+                        </div>
+                    ` : '<p><em>No current tenant</em></p>'}
+                    
+                    ${prop.reviews.length > 0 ? `
+                        <div class="reviews">
+                            <h4>Reviews</h4>
+                            ${prop.reviews.map(r => `
+                                <div class="review">
+                                    <p><strong>${r.tenant_name}</strong> - ${r.rating} ⭐ (${r.review_date})</p>
+                                    <p>${r.comment || 'No comment'}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : '<p><em>No reviews yet</em></p>'}
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Load data on page load
+        loadOverview();
+    </script>
+</body>
+</html>
