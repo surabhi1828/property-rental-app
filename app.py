@@ -20,9 +20,62 @@ with app.app_context():
 
 # ==================== AUTHENTICATION ROUTES ====================
 
-@app.route('/')
+# ==================== PUBLIC HOME & AUTH ROUTES ====================
+
+@app.route('/', methods=['GET', 'POST'])
+def home():
+    """NEW Public-facing homepage with property search."""
+    
+    # Base query joins PROPERTY and OWNER tables
+    query = """
+        SELECT 
+            p.property_id, p.address, p.city, p.description, p.sq_footage, 
+            p.monthly_rent, p.status,
+            o.name as owner_name, 
+            o.email as owner_email, 
+            o.phone as owner_phone
+        FROM PROPERTY p
+        JOIN OWNER o ON p.owner_id = o.owner_id
+    """
+    
+    params = []
+    conditions = []
+
+    if request.method == 'POST':
+        # Handle search logic from form
+        keyword = request.form.get('keyword', '')
+        city = request.form.get('city', '')
+        
+        if keyword:
+            # Search in description, address
+            conditions.append("(p.description LIKE %s OR p.address LIKE %s)")
+            params.extend([f"%{keyword}%", f"%{keyword}%"])
+            
+        if city:
+            conditions.append("p.city LIKE %s")
+            params.append(f"%{city}%")
+            
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        
+    else:
+        # Default GET request: Show only AVAILABLE properties
+        conditions.append("p.status = 'Available'")
+        query += " WHERE " + " AND ".join(conditions)
+
+    query += " ORDER BY p.monthly_rent ASC"
+    
+    # Use your db.execute_query method
+    result = db.execute_query(query, tuple(params))
+    
+    properties = result['data'] if result['success'] else []
+
+    return render_template('home.html', properties=properties)
+
+
+@app.route('/login')
 def index():
-    """Role selection page"""
+    """MOVED Role selection page (was at '/')"""
     session.clear()
     return render_template('index.html')
 

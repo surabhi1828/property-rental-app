@@ -1,0 +1,252 @@
+/* ==================================== */
+/* SIMPLE STYLING (Matches Screenshot)  */
+/* ==================================== */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', 'Segoe UI', Tahoma, sans-serif;
+    background-color: #f8f9fa; /* Light gray page background */
+    color: #333;
+    line-height: 1.6;
+}
+
+/* This centers content inside full-width sections */
+.container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* ==================================== */
+/* NAVBAR SECTION (Full-Width)          */
+/* ==================================== */
+.navbar-section {
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.navbar-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 70px;
+}
+
+.navbar-brand {
+    font-size: 24px;
+    font-weight: 700;
+    color: #333;
+    text-decoration: none;
+}
+
+.navbar-links a {
+    margin-left: 25px;
+    text-decoration: none;
+    color: #555;
+    font-weight: 500;
+    font-size: 14px;
+    text-transform: uppercase;
+    transition: color 0.3s ease;
+}
+
+.navbar-links a:hover {
+    color: #007bff;
+}
+
+.navbar-links a.btn-register {
+    background: #007bff;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 5px;
+}
+
+/* ==================================== */
+/* SEARCH SECTION (Full-Width)          */
+/* ==================================== */
+.search-section {
+    background: #ffffff;
+    padding: 30px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.search-section-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.search-section-header h2 {
+    font-weight: 600;
+    font-size: 28px;
+    margin-bottom: 10px;
+}
+
+.search-section-header p {
+    font-size: 16px;
+    color: #777;
+}
+
+.search-form {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap; /* Allow wrapping */
+}
+
+.search-form input[type="text"] {
+    width: 300px;
+    padding: 12px 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 15px;
+    font-family: 'Poppins', sans-serif;
+}
+
+.search-form input[type="text"]:focus {
+    outline: none;
+    border-color: #007bff;
+}
+
+.btn {
+    padding: 12px 30px;
+    font-size: 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: white;
+    font-weight: 600;
+}
+
+.btn-green {
+    background: #28a745;
+}
+.btn-green:hover {
+    background: #218838;
+}
+
+/* ==================================== */
+/* RESULTS SECTION (Full-Width)         */
+/* ==================================== */
+.results-section {
+    padding: 40px 0;
+}
+
+.results-header {
+    font-size: 24px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 25px;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 10px;
+}
+
+.property-card {
+    background: #ffffff;
+    border-radius: 5px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    overflow: hidden;
+}
+
+.property-card-content {
+    padding: 25px;
+    display: grid;
+    /* This creates the 3-column layout */
+    grid-template-columns: 1fr 1fr 1fr; 
+    gap: 30px;
+}
+
+.detail-block h4 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.detail-block p {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 8px;
+}
+
+.detail-block p strong {
+    font-weight: 600;
+    color: #111;
+    display: inline-block;
+    min-width: 120px; /* Aligns the values */
+}
+
+/* Status Badges */
+.status-badge {
+    padding: 10px 15px;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: 600;
+    text-transform: uppercase;
+    display: inline-block;
+    width: 100%;
+    text-align: center;
+}
+.status-available {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+.status-rented {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+/* No results */
+.no-results {
+    background: #ffffff;
+    padding: 40px;
+    text-align: center;
+    border-radius: 8px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .search-form {
+        flex-direction: column;
+        align-items: center;
+    }
+    .search-form input[type="text"] {
+        width: 100%;
+    }
+    .property-card-content {
+        grid-template-columns: 1fr; /* Stack columns on mobile */
+    }
+}
+
+/* ==================================== */
+/* HERO SECTION (ADD THIS TO HOME.CSS)  */
+/* ==================================== */
+.hero-section {
+    /* Full screen height minus the navbar height */
+    height: calc(100vh - 70px); 
+    background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://placehold.co/1600x900/4a55e1/ffffff?text=Find+Home+Together') center/cover no-repeat;
+    
+    /* Flexbox to center the text */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: white;
+}
+
+.hero-content h2 {
+    font-size: 3.5rem; /* 56px */
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.hero-content p {
+    font-size: 1.25rem; /* 20px */
+    color: #e0e0e0;
+}

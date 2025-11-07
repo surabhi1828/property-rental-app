@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Rental System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+</head>
+<body>
+
+    <!-- Navbar Section (No Change) -->
+    <nav class="navbar-section">
+        <div class="container navbar-content">
+            <a href="/" class="navbar-brand">FindHome</a>
+            <div class="navbar-links">
+                <a href="/">Search</a>
+                <a href="{{ url_for('index') }}">Login</a>
+                <a href="{{ url_for('signup_page') }}" class="btn-register">Register</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ==== ADD THIS NEW HERO SECTION ==== -->
+    <header class="hero-section">
+        <div class="container hero-content">
+            <div>
+                <p>Welcome To Simple House Rental System</p>
+                <h2>FIND HOME TOGETHER!</h2>
+            </div>
+        </div>
+    </header>
+    <!-- ==== END OF NEW SECTION ==== -->
+
+
+    <!-- Search Section (No Change) -->
+    <div class="search-section">
+        <div class="container">
+            <div class="search-section-header">
+                <h2>SEARCH</h2>
+                <p>Make a quick search at our number of services!</p>
+            </div>
+            <form action="/" method="POST" class="search-form">
+                <input type="text" name="keyword" placeholder="Keywords (Ex: 1 BHK, Rent Amount, Landmark)">
+                <input type="text" name="city" placeholder="Location">
+                <button type="submit" class="btn btn-green">SEARCH</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Property Results Section (No Change) -->
+    <main class="results-section">
+        <div class="container">
+            <h3 class="results-header">Available Results:</h3>
+            
+            {% if properties %}
+                <!-- ... (rest of your results page) ... -->
+                <div class="property-list">
+                    {% for prop in properties %}
+                    <div class="property-card">
+                        <div class="property-card-content">
+                            
+                            <!-- Owner Details -->
+                            <div class="detail-block">
+                                <h4>Owner Details</h4>
+                                <p><strong>Owner:</strong> {{ prop.owner_name }}</p>
+                                <p><strong>Contact:</strong> {{ prop.owner_phone }}</p>
+                                <p><strong>Email:</strong> {{ prop.owner_email }}</p>
+                            </div>
+                            
+                            <!-- Property Details -->
+                            <div class="detail-block">
+                                <h4>Property Details</h4>
+                                <p><strong>Rent:</strong> ₹{{ "%.2f"|format(prop.monthly_rent) }} /mo</p>
+                                <p><strong>Address:</strong> {{ prop.address }}</p>
+                                <p><strong>City:</strong> {{ prop.city }}</p>
+                                <p><strong>Sq. Ft:</strong> {{ prop.sq_footage }} sq.ft.</p>
+                            </div>
+
+                            <!-- Other Details -->
+                            <div class="detail-block">
+                                <h4>Other Details</h4>
+                                <p><strong>Description:</strong> {{ prop.description }}</p>
+                                
+                                <!-- Status Badge -->
+                                {% if prop.status == 'Available' %}
+                                    <span class="status-badge status-available">Available</span>
+                                {% elif prop.status == 'Rented' %}
+                                    <span class="status-badge status-rented">Rented</span>
+                                {% else %}
+                                    <span class="status-badge status-maintenance">{{ prop.status }}</span>
+                                {% endif %}
+                            </div>
+                            
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="no-results">
+                    <h4>No Properties Found</h4>
+                    <p>Your search returned no results.</p>
+                </div>
+            {% endif %}
+        </div>
+    </main>
+
+</body>
+</html>
