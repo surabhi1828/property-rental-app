@@ -3,7 +3,6 @@ from database import Database
 from datetime import datetime
 import os
 from dotenv import load_dotenv
-import os
 
 # Load environment variables
 load_dotenv()
@@ -31,7 +30,8 @@ def home():
             p.monthly_rent, p.status,
             o.name as owner_name, 
             o.email as owner_email, 
-            o.phone as owner_phone
+            o.phone as owner_phone,
+            (SELECT AVG(r.rating) FROM REVIEW r WHERE r.property_id = p.property_id) as avg_rating
         FROM PROPERTY p
         JOIN OWNER o ON p.owner_id = o.owner_id
     """
@@ -45,7 +45,6 @@ def home():
         city = request.form.get('city', '')
         
         if keyword:
-            # Search in description, address
             conditions.append("(p.description LIKE %s OR p.address LIKE %s)")
             params.extend([f"%{keyword}%", f"%{keyword}%"])
             
@@ -63,12 +62,14 @@ def home():
 
     query += " ORDER BY p.monthly_rent ASC"
     
-    # Use your db.execute_query method
-    result = db.execute_query(query, tuple(params))
-    
-    properties = result['data'] if result['success'] else []
-
-    return render_template('home.html', properties=properties)
+    try:
+        result = db.execute_query(query, tuple(params))
+        properties = result['data'] if result['success'] else []
+        return render_template('home.html', properties=properties)
+        
+    except Exception as e:
+        print(f"!!! ERROR in /: {e}")
+        return render_template('home.html', properties=[])
 
 
 @app.route('/login')
@@ -91,7 +92,6 @@ def login():
     role = data.get('role')
     
     if role == 'admin':
-        # Hardcoded admin credentials
         if data.get('username') == 'admin' and data.get('password') == 'admin':
             session['role'] = 'admin'
             session['user_id'] = 0
@@ -101,11 +101,12 @@ def login():
             return jsonify({'success': False, 'error': 'Invalid admin credentials'})
     
     elif role in ['owner', 'tenant']:
-        # Use .strip() to remove any leading/trailing whitespace
         name = data.get('name', '').strip()
         email = data.get('email', '').strip()
         
-        # Query appropriate table
+        if not name or not email:
+            return jsonify({'success': False, 'error': 'Name and Email are required'})
+            
         table = 'OWNER' if role == 'owner' else 'TENANT'
         id_field = 'owner_id' if role == 'owner' else 'tenant_id'
         
@@ -160,7 +161,7 @@ def logout():
     session.clear()
     return redirect(url_for('index'))
 
-# ==================== ADMIN ROUTES (Safer Version) ====================
+# ==================== ADMIN ROUTES ====================
 
 @app.route('/admin')
 def admin_dashboard():
@@ -169,8 +170,6 @@ def admin_dashboard():
         return redirect(url_for('index'))
     return render_template('admin_dashboard.html')
 
-
-# --- NEW ADMIN API ROUTES ---
 
 @app.route('/api/admin/stats')
 def admin_stats():
@@ -184,6 +183,7 @@ def admin_stats():
         query_props = "SELECT COUNT(*) AS count FROM PROPERTY"
         props_result = db.execute_query(query_props, ())
         
+        # Removed the review count as requested
         stats = {
             'total_users': (users_result['data'][0]['count'] or 0) if (users_result['success'] and users_result['data']) else 0,
             'total_properties': (props_result['data'][0]['count'] or 0) if (props_result['success'] and props_result['data']) else 0
@@ -275,7 +275,7 @@ def owner_dashboard():
 
 @app.route('/api/owner/properties')
 def owner_properties():
-    """Get owner's properties"""
+    """Get owner's properties. NO NESTED QUERIES."""
     if session.get('role') != 'owner':
         return jsonify({'success': False, 'error': 'Unauthorized'})
         
@@ -283,20 +283,10 @@ def owner_properties():
     
     query = """
     SELECT 
-        p.property_id,
-        p.address,
-        p.city,
-        p.description,
-        p.sq_footage,
-        p.monthly_rent,
-        p.status,
-        t.tenant_id,
-        t.name AS tenant_name,
-        t.email AS tenant_email,
-        t.phone AS tenant_phone,
-        occ.occupancy_id,
-        occ.start_date,
-        occ.end_date
+        p.property_id, p.address, p.city, p.description, p.sq_footage,
+        p.monthly_rent, p.status,
+        t.tenant_id, t.name AS tenant_name, t.email AS tenant_email, t.phone AS tenant_phone,
+        occ.occupancy_id, occ.start_date, occ.end_date
     FROM PROPERTY p
     LEFT JOIN OCCUPANCY occ ON p.property_id = occ.property_id AND occ.end_date IS NULL
     LEFT JOIN TENANT t ON occ.tenant_id = t.tenant_id
@@ -305,16 +295,13 @@ def owner_properties():
     """
     
     try:
-        # We call the query and immediately return it.
-        # The complex loop that caused the crash has been removed.
         result = db.execute_query(query, (owner_id,))
         return jsonify(result)
-        
     except Exception as e:
         print(f"!!! ERROR in /api/owner/properties: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# --- ADD THIS NEW ROUTE ---
+
 @app.route('/api/owner/stats')
 def owner_stats():
     """Get dashboard stats for the logged-in owner."""
@@ -341,7 +328,6 @@ def owner_stats():
         return jsonify({'success': False, 'error': str(e)})
 
 
-# --- ADD THIS NEW ROUTE ---
 @app.route('/api/owner/property/<int:property_id>', methods=['GET'])
 def get_owner_property_details(property_id):
     """Get details for a single property, verifying ownership."""
@@ -351,7 +337,6 @@ def get_owner_property_details(property_id):
     owner_id = session.get('user_id')
     
     try:
-        # Verify ownership and get details
         query = "SELECT * FROM PROPERTY WHERE property_id = %s AND owner_id = %s"
         result = db.execute_query(query, (property_id, owner_id))
         
@@ -389,6 +374,7 @@ def create_property():
         data.get('monthly_rent')
     )
     
+    # fetch=False is correct for a simple INSERT
     result = db.execute_query(query, params, fetch=False)
     
     if result['success']:
@@ -405,38 +391,42 @@ def update_property(property_id):
     data = request.json
     owner_id = session.get('user_id')
     
-    # Verify ownership
-    check_query = "SELECT owner_id FROM PROPERTY WHERE property_id = %s"
-    check = db.execute_query(check_query, (property_id,))
-    
-    if not check['success'] or len(check['data']) == 0:
-        return jsonify({'success': False, 'error': 'Property not found'})
-    
-    if check['data'][0]['owner_id'] != owner_id:
-        return jsonify({'success': False, 'error': 'Unauthorized'})
-    
-    query = """
-    UPDATE PROPERTY 
-    SET address = %s, city = %s, description = %s, 
-        sq_footage = %s, monthly_rent = %s, status = %s
-    WHERE property_id = %s
-    """
-    params = (
-        data.get('address'),
-        data.get('city'),
-        data.get('description'),
-        data.get('sq_footage'),
-        data.get('monthly_rent'),
-        data.get('status'),
-        property_id
-    )
-    
-    result = db.execute_query(query, params, fetch=False)
-    
-    if result['success']:
-        result['message'] = 'Property updated successfully'
-    
-    return jsonify(result)
+    try:
+        check_query = "SELECT owner_id FROM PROPERTY WHERE property_id = %s"
+        check = db.execute_query(check_query, (property_id,))
+        
+        if not check['success'] or len(check['data']) == 0:
+            return jsonify({'success': False, 'error': 'Property not found'})
+        
+        if check['data'][0]['owner_id'] != owner_id:
+            return jsonify({'success': False, 'error': 'Unauthorized'})
+        
+        query = """
+        UPDATE PROPERTY 
+        SET address = %s, city = %s, description = %s, 
+            sq_footage = %s, monthly_rent = %s, status = %s
+        WHERE property_id = %s
+        """
+        params = (
+            data.get('address'),
+            data.get('city'),
+            data.get('description'),
+            data.get('sq_footage'),
+            data.get('monthly_rent'),
+            data.get('status'),
+            property_id
+        )
+        
+        result = db.execute_query(query, params, fetch=False)
+        
+        if result['success']:
+            result['message'] = 'Property updated successfully'
+        
+        return jsonify(result)
+    except Exception as e:
+        print(f"!!! ERROR in /api/owner/property/PUT: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
 
 @app.route('/api/owner/property/<int:property_id>', methods=['DELETE'])
 def delete_property(property_id):
@@ -446,29 +436,28 @@ def delete_property(property_id):
     
     owner_id = session.get('user_id')
     
-    # Verify ownership
-    check_query = "SELECT owner_id FROM PROPERTY WHERE property_id = %s"
-    check = db.execute_query(check_query, (property_id,))
-    
-    if not check['success'] or len(check['data']) == 0:
-        return jsonify({'success': False, 'error': 'Property not found'})
-    
-    if check['data'][0]['owner_id'] != owner_id:
-        return jsonify({'success': False, 'error': 'Unauthorized'})
-    
-    # We must delete child records first (reviews, payments, occupancy)
-    # This is a good place to use a Stored Procedure, but for now, we do it manually
     try:
+        check_query = "SELECT owner_id FROM PROPERTY WHERE property_id = %s"
+        check = db.execute_query(check_query, (property_id,))
+        
+        if not check['success'] or len(check['data']) == 0:
+            return jsonify({'success': False, 'error': 'Property not found'})
+        
+        if check['data'][0]['owner_id'] != owner_id:
+            return jsonify({'success': False, 'error': 'Unauthorized'})
+        
+        # We must delete child records first
+        
         # Find occupancy records to delete payments
         occ_query = "SELECT occupancy_id FROM OCCUPANCY WHERE property_id = %s"
         occ_result = db.execute_query(occ_query, (property_id,))
+        
         if occ_result['success'] and occ_result['data']:
             occ_ids = [row['occupancy_id'] for row in occ_result['data']]
-            # Create a string for the IN clause, e.g., (1, 2, 3)
-            occ_id_list = ','.join(map(str, occ_ids))
-            
-            pay_query = f"DELETE FROM PAYMENTS WHERE occupancy_id IN ({occ_id_list})"
-            db.execute_query(pay_query, (), fetch=False)
+            if occ_ids:
+                occ_id_list = ','.join(map(str, occ_ids))
+                pay_query = f"DELETE FROM PAYMENTS WHERE occupancy_id IN ({occ_id_list})"
+                db.execute_query(pay_query, (), fetch=False)
 
         # Now delete reviews, occupancy, and finally the property
         db.execute_query("DELETE FROM REVIEW WHERE property_id = %s", (property_id,), fetch=False)
@@ -485,12 +474,6 @@ def delete_property(property_id):
         return jsonify({'success': False, 'error': 'A database error occurred during deletion.'})
 
 
-
-# ==================== OWNER ROUTES ====================
-
-# ... (keep your existing /owner, /api/owner/properties, etc.) ...
-
-# --- ADD THIS NEW ROUTE ---
 @app.route('/api/owner/all_tenants')
 def get_all_tenants():
     """Fetches all tenants to populate a dropdown."""
@@ -505,7 +488,7 @@ def get_all_tenants():
         print(f"!!! ERROR in /api/owner/all_tenants: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# --- ADD THIS NEW ROUTE ---
+
 @app.route('/api/owner/assign_tenant', methods=['POST'])
 def assign_tenant():
     """Assigns a tenant to a property by creating an OCCUPANCY record."""
@@ -518,7 +501,6 @@ def assign_tenant():
     owner_id = session.get('user_id')
 
     try:
-        # First, check if owner actually owns this property
         check_query = "SELECT owner_id, status FROM PROPERTY WHERE property_id = %s"
         check = db.execute_query(check_query, (property_id,))
         
@@ -529,16 +511,27 @@ def assign_tenant():
         if check['data'][0]['status'] != 'Available':
              return jsonify({'success': False, 'error': 'Property is already rented'})
 
-        # Create the new occupancy record
+        # Check for same-day re-assignment
+        check_duplicate_query = """
+            SELECT occupancy_id FROM OCCUPANCY 
+            WHERE tenant_id = %s AND property_id = %s AND start_date = CURDATE()
+        """
+        duplicate_check = db.execute_query(check_duplicate_query, (tenant_id, property_id))
+        
+        if duplicate_check['success'] and len(duplicate_check['data']) > 0:
+            return jsonify({
+                'success': False, 
+                'error': 'This tenant was already assigned to this property today.'
+            })
+
         query = """
             INSERT INTO OCCUPANCY (tenant_id, property_id, start_date)
             VALUES (%s, %s, CURDATE())
         """
-        result = db.execute_query(query, (tenant_id, property_id), fetch=False)
+        # This INSERT fires a trigger, so fetch=True is CRITICAL
+        result = db.execute_query(query, (tenant_id, property_id), fetch=True)
         
         if result['success']:
-            # The trg_update_property_status_on_checkin trigger
-            # will automatically set the property status to 'Rented'.
             result['message'] = 'Tenant assigned successfully! Property is now Rented.'
             
         return jsonify(result)
@@ -547,7 +540,7 @@ def assign_tenant():
         print(f"!!! ERROR in /api/owner/assign_tenant: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# --- ADD THIS NEW ROUTE ---
+
 @app.route('/api/owner/end_tenancy', methods=['POST'])
 def end_tenancy():
     """Ends a tenancy by calling the sp_checkout_tenant stored procedure."""
@@ -559,8 +552,6 @@ def end_tenancy():
     owner_id = session.get('user_id')
 
     try:
-        # Huge security check:
-        # Check if this owner actually owns the property associated with this occupancy
         check_query = """
             SELECT p.owner_id 
             FROM OCCUPANCY o
@@ -574,13 +565,12 @@ def end_tenancy():
         if check['data'][0]['owner_id'] != owner_id:
             return jsonify({'success': False, 'error': 'Unauthorized'})
 
-        # Call the Stored Procedure to end the tenancy
         query = "CALL sp_checkout_tenant(%s, CURDATE())"
-        result = db.execute_query(query, (occupancy_id,), fetch=False)
+        
+        # CALLing a procedure requires fetch=True to clear the connection
+        result = db.execute_query(query, (occupancy_id,), fetch=True)
         
         if result['success']:
-            # The trg_update_status_on_checkout trigger
-            # will automatically set the property status to 'Available'.
             result['message'] = 'Tenancy ended. Property is now Available.'
             
         return jsonify(result)
@@ -588,7 +578,6 @@ def end_tenancy():
     except Exception as e:
         print(f"!!! ERROR in /api/owner/end_tenancy: {e}")
         return jsonify({'success': False, 'error': str(e)})
-
 
 
 # ==================== TENANT ROUTES ====================
@@ -602,55 +591,111 @@ def tenant_dashboard():
 
 @app.route('/api/tenant/rentals')
 def tenant_rentals():
-    """Get tenant's current and past rentals"""
+    """Get tenant's current and past rentals. NO NESTED QUERIES."""
+    if session.get('role') != 'tenant':
+        return jsonify({'success': False, 'error': 'Unauthorized'})
+        
     tenant_id = session.get('user_id')
     
-    query = """
-    SELECT 
-        p.property_id,
-        p.address,
-        p.city,
-        p.description,
-        p.sq_footage,
-        p.monthly_rent,
-        p.status,
-        o.name AS owner_name,
-        o.phone AS owner_phone,
-        occ.occupancy_id,
-        occ.start_date,
-        occ.end_date
-    FROM OCCUPANCY occ
-    JOIN PROPERTY p ON occ.property_id = p.property_id
-    JOIN OWNER o ON p.owner_id = o.owner_id
-    WHERE occ.tenant_id = %s
-    ORDER BY occ.start_date DESC
-    """
-    result = db.execute_query(query, (tenant_id,))
-    
-    if result['success']:
-        for rental in result['data']:
-            # Get payment history
-            payment_query = """
-            SELECT payment_id, amount, payment_date, month_year, method, status
-            FROM PAYMENTS
-            WHERE occupancy_id = %s
-            ORDER BY payment_date DESC
-            """
-            payments = db.execute_query(payment_query, (rental['occupancy_id'],))
-            rental['payments'] = payments['data'] if payments['success'] else []
+    try:
+        # First, get all rental (occupancy) details
+        query = """
+        SELECT 
+            p.property_id, p.address, p.city, p.description, p.sq_footage,
+            p.monthly_rent, p.status,
+            o.name AS owner_name, o.phone AS owner_phone,
+            occ.occupancy_id, occ.start_date, occ.end_date
+        FROM OCCUPANCY occ
+        JOIN PROPERTY p ON occ.property_id = p.property_id
+        JOIN OWNER o ON p.owner_id = o.owner_id
+        WHERE occ.tenant_id = %s
+        ORDER BY occ.start_date DESC
+        """
+        rental_result = db.execute_query(query, (tenant_id,))
+        if not rental_result['success']:
+            return jsonify(rental_result)
+
+        # Now, get ALL payments for this tenant in ONE query
+        payment_query = """
+            SELECT p.payment_id, p.amount, p.payment_date, p.month_year, p.method, p.status, p.occupancy_id
+            FROM PAYMENTS p
+            JOIN OCCUPANCY o ON p.occupancy_id = o.occupancy_id
+            WHERE o.tenant_id = %s
+        """
+        payment_result = db.execute_query(payment_query, (tenant_id,))
+        
+        payments_map = {}
+        if payment_result['success'] and payment_result['data']:
+            for payment in payment_result['data']:
+                occ_id = payment['occupancy_id']
+                if occ_id not in payments_map:
+                    payments_map[occ_id] = []
+                payments_map[occ_id].append(payment)
+
+        # Now, combine the data in Python (fast, no nested queries)
+        current_month = datetime.now().strftime('%Y-%m')
+        for rental in rental_result['data']:
+            # Assign payments
+            rental['payments'] = payments_map.get(rental['occupancy_id'], [])
             
-            # Calculate if rent is due (simplified - check if current month payment exists)
-            current_month = datetime.now().strftime('%Y-%m')
+            # Calculate rent_due
             rental['rent_due'] = True
             if rental['end_date'] is not None: # If tenancy is over, rent is not due
-                 rental['rent_due'] = False
+                rental['rent_due'] = False
             else:
                 for payment in rental['payments']:
                     if payment['month_year'] == current_month and payment['status'] in ['Paid', 'Pending']:
                         rental['rent_due'] = False
                         break
+        
+        return jsonify(rental_result)
+
+    except Exception as e:
+        print(f"!!! ERROR in /api/tenant/rentals: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/tenant/make_payment', methods=['POST'])
+def make_payment():
+    """Simulates making a payment for a specific occupancy."""
+    if session.get('role') != 'tenant':
+        return jsonify({'success': False, 'error': 'Unauthorized'})
     
-    return jsonify(result)
+    data = request.json
+    occupancy_id = data.get('occupancy_id')
+    tenant_id = session.get('user_id')
+
+    try:
+        check_query = "SELECT tenant_id FROM OCCUPANCY WHERE occupancy_id = %s"
+        check = db.execute_query(check_query, (occupancy_id,))
+        
+        if not check['success'] or not check['data']:
+            return jsonify({'success': False, 'error': 'Occupancy record not found.'})
+        if check['data'][0]['tenant_id'] != tenant_id:
+            return jsonify({'success': False, 'error': 'Unauthorized action.'})
+
+        query = """
+            INSERT INTO PAYMENTS (occupancy_id, amount, payment_date, month_year, method, status)
+            VALUES (%s, %s, CURDATE(), %s, %s, 'Paid')
+        """
+        params = (
+            occupancy_id,
+            data.get('amount'),
+            data.get('month_year'),
+            data.get('method')
+        )
+        
+        result = db.execute_query(query, params, fetch=False)
+        
+        if result['success']:
+            result['message'] = 'Payment successful!'
+        
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"!!! ERROR in /api/tenant/make_payment: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
 
 @app.route('/api/tenant/review', methods=['POST'])
 def submit_review():
@@ -672,17 +717,22 @@ def submit_review():
         data.get('comment')
     )
     
+    # We use fetch=False, just like your working signup() function.
+    # This will allow your database.py to handle the commit correctly.
     result = db.execute_query(query, params, fetch=False)
     
     if result['success']:
         result['message'] = 'Review submitted successfully'
     else:
-        # Check if duplicate review trigger fired
+        # Check if the trigger fired (which is an error we expect)
         if result.get('error') and 'trg_prevent_duplicate_review' in result.get('error', ''):
             result['message'] = 'You have already reviewed this property'
             result['error'] = 'You have already reviewed this property' # Make error clear
+        elif result.get('error'):
+             result['error'] = 'You have already reviewed this property' # General error
         
     return jsonify(result)
+
 
 @app.route('/api/tenant/request-rent', methods=['POST'])
 def request_rent():
@@ -694,64 +744,66 @@ def request_rent():
     tenant_id = session.get('user_id')
     property_id = data.get('property_id')
     
-    # Check if property is available
-    check_query = "SELECT status FROM PROPERTY WHERE property_id = %s"
-    check = db.execute_query(check_query, (property_id,))
-    
-    if not check['success'] or len(check['data']) == 0:
-        return jsonify({'success': False, 'error': 'Property not found'})
-    
-    if check['data'][0]['status'] != 'Available':
-        return jsonify({'success': False, 'error': 'Property is not available'})
-    
-    # Create occupancy record
-    query = """
-    INSERT INTO OCCUPANCY (tenant_id, property_id, start_date, end_date)
-    VALUES (%s, %s, CURDATE(), NULL)
-    """
-    result = db.execute_query(query, (tenant_id, property_id), fetch=False)
-    
-    if result['success']:
-        # Trigger should have updated property status to 'Rented'
-        result['message'] = 'Rental request successful! Property status updated to Rented.'
-    
-    return jsonify(result)
+    try:
+        check_query = "SELECT status FROM PROPERTY WHERE property_id = %s"
+        check = db.execute_query(check_query, (property_id,))
+        
+        if not check['success'] or len(check['data']) == 0:
+            return jsonify({'success': False, 'error': 'Property not found'})
+        
+        if check['data'][0]['status'] != 'Available':
+            return jsonify({'success': False, 'error': 'Property is not available'})
+        
+        query = """
+        INSERT INTO OCCUPANCY (tenant_id, property_id, start_date, end_date)
+        VALUES (%s, %s, CURDATE(), NULL)
+        """
+        
+        # This INSERT fires a trigger, so fetch=True is CRITICAL
+        result = db.execute_query(query, (tenant_id, property_id), fetch=True)
+        
+        if result['success']:
+            result['message'] = 'Rental request successful! Property status updated to Rented.'
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"!!! ERROR in /api/tenant/request-rent: {e}")
+        return jsonify({'success': False, 'error': str(e)})
 
-# ==================== BROWSE PROPERTIES (OWNER & TENANT) ====================
+# ==================== BROWSE PROPERTIES ====================
 
 @app.route('/api/properties/browse')
 def browse_properties():
-    """Browse all available properties"""
+    """Browse all available properties, NO NESTED QUERIES."""
+    
+    # This query now joins a subquery to get the avg_rating
+    # This is efficient and avoids nested loops.
     query = """
     SELECT 
-        p.property_id,
-        p.address,
-        p.city,
-        p.description,
-        p.sq_footage,
-        p.monthly_rent,
-        p.status,
+        p.property_id, p.address, p.city, p.description, p.sq_footage,
+        p.monthly_rent, p.status,
         o.name AS owner_name,
-        o.phone AS owner_phone
+        o.phone AS owner_phone,
+        COALESCE(r.avg_rating, 0) AS avg_rating
     FROM PROPERTY p
     JOIN OWNER o ON p.owner_id = o.owner_id
+    LEFT JOIN (
+        SELECT property_id, AVG(rating) as avg_rating
+        FROM REVIEW
+        GROUP BY property_id
+    ) r ON p.property_id = r.property_id
+    WHERE p.status = 'Available'
     ORDER BY p.city, p.monthly_rent
     """
-    # Added try/except and () fix
     try:
         result = db.execute_query(query, ())
-        
-        if result['success']:
-            # Get average rating for each property
-            for prop in result['data']:
-                avg_query = "SELECT fn_get_avg_rating(%s) AS avg_rating"
-                avg_result = db.execute_query(avg_query, (prop['property_id'],))
-                prop['avg_rating'] = (avg_result['data'][0]['avg_rating'] or 0) if (avg_result['success'] and avg_result['data']) else 0
-        
         return jsonify(result)
     except Exception as e:
         print(f"!!! ERROR in /api/properties/browse: {e}")
         return jsonify({'success': False, 'error': str(e)})
+
+# ==================== MAIN RUN ====================
 
 if __name__ == '__main__':
     debug_mode = os.getenv('FLASK_DEBUG', 'False') == 'True'

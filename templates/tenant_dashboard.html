@@ -3,347 +3,517 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tenant Dashboard - Property Rental System</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <title>Tenant Dashboard</title>
+    <!-- Links to the new dashboard stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tenant_dashboard.css') }}">
 </head>
 <body>
-    <div class="container">
-        <div class="dashboard-header">
-            <h1>Tenant Dashboard</h1>
-            <div class="user-info">
-                <span>Welcome, {{ user_name }}</span>
-                <a href="/logout" class="btn logout-btn">Logout</a>
-            </div>
-        </div>
 
-        <div class="tabs">
-            <button class="tab-btn active" onclick="showTab('myRentals')">My Rentals</button>
-            <button class="tab-btn" onclick="showTab('browse')">Browse Properties</button>
-        </div>
+    <!-- Success/Error Popup -->
+    <div id="toast-notification" class="toast-notification"></div>
 
-        <!-- My Rentals Tab -->
-        <div id="myRentals" class="tab-content active">
-            <h2>My Rentals</h2>
-            <div id="myRentalsContainer"></div>
-        </div>
-
-        <!-- Browse Tab -->
-        <div id="browse" class="tab-content">
-            <h2>Browse Available Properties</h2>
-            <div id="browseContainer"></div>
-        </div>
-    </div>
-
-    <!-- Review Modal -->
-    <div id="reviewModal" class="modal" style="display:none;">
+    <!-- Make Payment Modal -->
+    <div id="payment-modal" class="modal">
         <div class="modal-content">
-            <h3>Write a Review</h3>
-            <form id="reviewForm">
-                <input type="hidden" id="review_property_id">
-                <label for="rating">Rating (1-5):</label>
-                <select id="rating" required>
-                    <option value="">Select Rating</option>
-                    <option value="1">1 ⭐</option>
-                    <option value="2">2 ⭐</option>
-                    <option value="3">3 ⭐</option>
-                    <option value="4">4 ⭐</option>
-                    <option value="5">5 ⭐</option>
-                </select>
-                <textarea id="comment" placeholder="Write your review..." rows="4"></textarea>
-                <button type="submit" class="btn btn-tenant">Submit Review</button>
-                <button type="button" class="btn" onclick="closeReviewModal()">Cancel</button>
+            <div class="modal-header">
+                <h2 id="payment-modal-title">Make Payment</h2>
+                <span class="close-btn" onclick="closeModal('payment-modal')">&times;</span>
+            </div>
+            <form id="payment-form">
+                <input type="hidden" id="payment-occupancy-id">
+                <div class="form-group">
+                    <label>Amount Due:</label>
+                    <input type="text" id="payment-amount" readonly>
+                </div>
+                <div class="form-group">
+                    <label>For Month:</label>
+                    <input type="text" id="payment-month-year" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="payment-method">Payment Method</label>
+                    <select id="payment-method" required>
+                        <option value="UPI">UPI</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="Credit Card">Credit Card</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-blue" style="width: 100%;">Pay Now</button>
             </form>
         </div>
     </div>
 
-    <script>
-        function showTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            
-            document.getElementById(tabName).classList.add('active');
-            event.target.classList.add('active');
-            
-            if (tabName === 'browse') {
-                loadBrowseProperties();
-            }
-        }
+    <!-- View Payment History Modal -->
+    <div id="history-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Payment History</h2>
+                <span class="close-btn" onclick="closeModal('history-modal')">&times;</span>
+            </div>
+            <table class="payment-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Month</th>
+                        <th>Method</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="payment-history-table-body">
+                    <!-- History rows injected here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
 
-        async function loadMyRentals() {
-            try {
-                const response = await fetch('/api/tenant/rentals');
-                const result = await response.json();
-                
-                if (result.success) {
-                    displayMyRentals(result.data);
-                } else {
-                    alert('Failed to load rentals: ' + result.error);
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
-            }
-        }
+    <!-- Submit Review Modal -->
+    <div id="review-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Submit Review</h2>
+                <span class="close-btn" onclick="closeModal('review-modal')">&times;</span>
+            </div>
+            <form id="review-form">
+                <input type="hidden" id="review-property-id">
+                <div class="form-group">
+                    <label for="review-rating">Rating (1-5)</label>
+                    <select id="review-rating" required>
+                        <option value="5">5 ⭐ (Excellent)</option>
+                        <option value="4">4 ⭐ (Good)</option>
+                        <option value="3">3 ⭐ (Average)</option>
+                        <option value="2">2 ⭐ (Poor)</option>
+                        <option value="1">1 ⭐ (Bad)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="review-comment">Comment</label>
+                    <textarea id="review-comment" placeholder="Write your review..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-blue" style="width: 100%;">Submit Review</button>
+            </form>
+        </div>
+    </div>
 
-        function displayMyRentals(rentals) {
-            const container = document.getElementById('myRentalsContainer');
-            container.innerHTML = '';
-            
-            if (rentals.length === 0) {
-                container.innerHTML = '<p>You have no rentals. Browse properties to find one!</p>';
-                return;
-            }
-            
-            rentals.forEach(rental => {
-                const statusClass = `status-${rental.status.toLowerCase()}`;
-                const isCurrent = rental.end_date === null;
-                
-                const card = document.createElement('div');
-                card.className = 'property-card';
-                card.innerHTML = `
-                    <h3>${rental.address}</h3>
-                    <p><strong>City:</strong> ${rental.city || 'N/A'}</p>
-                    <p><strong>Description:</strong> ${rental.description || 'N/A'}</p>
-                    <p><strong>Size:</strong> ${rental.sq_footage || 'N/A'} sq ft</p>
-                    <p><strong>Monthly Rent:</strong> ₹${rental.monthly_rent}</p>
-                    <p><strong>Status:</strong> <span class="status-badge ${statusClass}">${isCurrent ? 'Current Rental' : 'Past Rental'}</span></p>
-                    
-                    <div class="owner-info">
-                        <h4>Owner Information</h4>
-                        <p><strong>Name:</strong> ${rental.owner_name}</p>
-                        <p><strong>Phone:</strong> ${rental.owner_phone || 'N/A'}</p>
+    <!-- Main Dashboard Wrapper -->
+    <div class="dashboard-wrapper">
+        
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                FindHome
+            </div>
+            <div class="sidebar-nav">
+                <a class="nav-link active" data-view="dashboard">Dashboard</a>
+                <a class="nav-link" data-view="rentals">My Rentals</a>
+                <a class="nav-link" data-view="browse">Browse Properties</a>
+            </div>
+        </nav>
+
+        <!-- Main Content (Navbar + Page) -->
+        <main class="main-content">
+
+            <!-- Top Navbar -->
+            <header class="top-navbar">
+                <h1 id="page-title">Dashboard</h1>
+                <div class="user-info">
+                    <span>Welcome, {{ session.user_name }}</span>
+                    <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
+                </div>
+            </header>
+
+            <!-- Page Content (Dynamic) -->
+            <div class="page-content">
+
+                <!-- 1. Dashboard View (Default) -->
+                <section id="dashboard-view" class="content-section active">
+                    <div class="dashboard-cards" id="dashboard-cards-container">
+                        <!-- Stats injected by JS -->
                     </div>
-                    
-                    <div class="rental-info">
-                        <h4>Rental Details</h4>
-                        <p><strong>Start Date:</strong> ${rental.start_date}</p>
-                        ${rental.end_date ? `<p><strong>End Date:</strong> ${rental.end_date}</p>` : ''}
-                        ${isCurrent && rental.rent_due ? '<p class="alert">⚠️ Rent is due this month!</p>' : ''}
+                </section>
+
+                <!-- 2. My Rentals View (Hidden) -->
+                <section id="rentals-view" class="content-section">
+                    <h2>My Rentals (Current & Past)</h2>
+                    <div id="rentals-list">
+                        <!-- Rental cards will be injected here by JS -->
                     </div>
-                    
-                    ${rental.payments && rental.payments.length > 0 ? `
-                        <div class="payments">
-                            <h4>Payment History</h4>
-                            ${rental.payments.map(p => `
-                                <p>${p.month_year}: ₹${p.amount} - <strong>${p.status}</strong> (${p.payment_date})</p>
-                            `).join('')}
-                        </div>
-                    ` : '<p><em>No payment history</em></p>'}
-                    
-                    <div class="actions">
-                        <button class="btn btn-tenant" onclick="openReviewModal(${rental.property_id})">Write Review</button>
+                </section>
+
+                <!-- 3. Browse Properties View (Hidden) -->
+                <section id="browse-view" class="content-section">
+                    <h2>Browse Available Properties</h2>
+                    <div id="browse-list">
+                        <!-- Browsable property cards will be injected here by JS -->
                     </div>
-                `;
-                container.appendChild(card);
-            });
+                </section>
+
+            </div> <!-- End Page Content -->
+        </main> <!-- End Main Content -->
+    </div> <!-- End Dashboard Wrapper -->
+
+<script>
+    // --- Global Variables ---
+    const allNavLinks = document.querySelectorAll('.sidebar-nav .nav-link');
+    const allContentSections = document.querySelectorAll('.content-section');
+    const pageTitle = document.getElementById('page-title');
+
+    // Modals
+    const paymentModal = document.getElementById('payment-modal');
+    const historyModal = document.getElementById('history-modal');
+    const reviewModal = document.getElementById('review-modal');
+    
+    // Forms
+    const paymentForm = document.getElementById('payment-form');
+    const reviewForm = document.getElementById('review-form');
+
+    // --- View Switching Logic ---
+    function showView(viewId) {
+        allContentSections.forEach(section => section.classList.remove('active'));
+        allNavLinks.forEach(link => link.classList.remove('active'));
+
+        const targetSection = document.getElementById(viewId + '-view');
+        if (targetSection) targetSection.classList.add('active');
+
+        const targetLink = document.querySelector(`.nav-link[data-view="${viewId}"]`);
+        if (targetLink) {
+            targetLink.classList.add('active');
+            pageTitle.textContent = targetLink.textContent;
         }
 
-        function openReviewModal(propertyId) {
-            document.getElementById('review_property_id').value = propertyId;
-            document.getElementById('reviewModal').style.display = 'flex';
-        }
+        // --- View-Specific Logic ---
+        if (viewId === 'dashboard') loadDashboardStats();
+        if (viewId === 'rentals') loadMyRentals();
+        if (viewId === 'browse') loadBrowsableProperties();
+    }
 
-        function closeReviewModal() {
-            document.getElementById('reviewModal').style.display = 'none';
-            document.getElementById('reviewForm').reset();
-        }
-
-        document.getElementById('reviewForm').addEventListener('submit', async (e) => {
+    allNavLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
             e.preventDefault();
-            
-            const data = {
-                property_id: document.getElementById('review_property_id').value,
-                rating: document.getElementById('rating').value,
-                comment: document.getElementById('comment').value
-            };
-            
-            try {
-                const response = await fetch('/api/tenant/review', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert(result.message || 'Review submitted successfully!');
-                    closeReviewModal();
-                    loadMyRentals();
-                } else {
-                    alert('Failed to submit review: ' + (result.error || result.message));
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
-            }
+            const viewId = link.getAttribute('data-view');
+            showView(viewId);
         });
+    });
 
-        async function loadBrowseProperties() {
-            try {
-                const response = await fetch('/api/properties/browse');
-                const result = await response.json();
-                
-                if (result.success) {
-                    displayBrowseProperties(result.data);
-                }
-            } catch (error) {
-                console.error('Error loading browse properties:', error);
-            }
-        }
+    // --- Data Loading Functions ---
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDashboardStats(); // Load stats on initial page load
+    });
 
-        function displayBrowseProperties(properties) {
-            const container = document.getElementById('browseContainer');
-            container.innerHTML = '';
-            
-            // Filter only available properties
-            const availableProps = properties.filter(p => p.status === 'Available');
-            
-            if (availableProps.length === 0) {
-                container.innerHTML = '<p>No available properties at the moment.</p>';
-                return;
-            }
-            
-            availableProps.forEach(prop => {
-                const avgRating = prop.avg_rating ? prop.avg_rating.toFixed(1) : 'N/A';
+    // 1. Load Dashboard Stats
+    async function loadDashboardStats() {
+        const container = document.getElementById('dashboard-cards-container');
+        container.innerHTML = '<p>Loading stats...</p>';
+        try {
+            const response = await fetch('/api/tenant/rentals'); // We can reuse this
+            const result = await response.json();
+            if (result.success && result.data.length > 0) {
+                const currentRental = result.data.find(r => r.end_date === null);
                 
-                const card = document.createElement('div');
-                card.className = 'property-card';
-                card.innerHTML = `
-                    <h3>${prop.address}</h3>
-                    <p><strong>City:</strong> ${prop.city || 'N/A'}</p>
-                    <p><strong>Description:</strong> ${prop.description || 'N/A'}</p>
-                    <p><strong>Size:</strong> ${prop.sq_footage || 'N/A'} sq ft</p>
-                    <p><strong>Monthly Rent:</strong> ₹${prop.monthly_rent}</p>
-                    <p><strong>Rating:</strong> ${avgRating} ⭐</p>
-                    <p><strong>Owner:</strong> ${prop.owner_name} - ${prop.owner_phone || 'N/A'}</p>
-                    <p><span class="status-badge status-available">Available</span></p>
-                    
-                    <div class="actions">
-                        <button class="btn btn-tenant" onclick="requestRent(${prop.property_id})">Request to Rent</button>
-                    </div>
-                `;
-                container.appendChild(card);
-            });
-        }
-
-        async function requestRent(propertyId) {
-            if (!confirm('Do you want to request to rent this property?')) return;
-            
-            try {
-                const response = await fetch('/api/tenant/request-rent', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ property_id: propertyId })
-                });
+                container.innerHTML = ''; // Clear
                 
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert(result.message || 'Rental request successful!');
-                    loadBrowseProperties();
-                    loadMyRentals();
+                if (currentRental) {
+                    container.innerHTML += `
+                        <div class="card card-green">
+                            <h3>Current Rental</h3>
+                            <p>${currentRental.address}, ${currentRental.city}</p>
+                        </div>
+                    `;
+                    if (currentRental.rent_due) {
+                         container.innerHTML += `
+                            <div class="card card-red">
+                                <h3>Rent Status</h3>
+                                <p>Rent is due for ${new Date().toLocaleString('default', { month: 'long' })}!</p>
+                            </div>
+                        `;
+                    } else {
+                         container.innerHTML += `
+                            <div class="card card-green">
+                                <h3>Rent Status</h3>
+                                <p>You are all paid up!</p>
+                            </div>
+                        `;
+                    }
                 } else {
-                    alert('Request failed: ' + result.error);
+                    container.innerHTML = `
+                        <div class="card">
+                            <h3>No Current Rental</h3>
+                            <p>You are not currently renting. Click "Browse Properties" to find a new home.</p>
+                        </div>
+                    `;
                 }
-            } catch (error) {
-                alert('Error: ' + error.message);
+            } else {
+                container.innerHTML = `<p>Welcome! Click "Browse Properties" to find a home.</p>`;
             }
+        } catch(err) {
+            container.innerHTML = `<p style="color: red;">Error loading dashboard.</p>`;
         }
+    }
 
-        // Load rentals on page load
-        loadMyRentals();
-    </script>
+    // 2. Load "My Rentals" (Current & Past)
+    async function loadMyRentals() {
+        const listContainer = document.getElementById('rentals-list');
+        listContainer.innerHTML = '<p style="text-align:center;">Loading...</p>';
+        try {
+            const response = await fetch('/api/tenant/rentals');
+            const result = await response.json();
+            listContainer.innerHTML = ''; // Clear loading
 
-    <style>
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            justify-content: center;
-            align-items: center;
+            if (result.success && result.data.length > 0) {
+                result.data.forEach(prop => {
+                    const rent = parseFloat(prop.monthly_rent);
+                    let statusHTML = '';
+                    
+                    if (prop.end_date === null) { // Current Rental
+                        statusHTML = `<span class="status-badge status-rented">Current Rental</span>`;
+                    } else { // Past Rental
+                        statusHTML = `<span class="status-badge status-past">Ended: ${new Date(prop.end_date).toLocaleDateString()}</span>`;
+                    }
+
+                    listContainer.innerHTML += `
+                        <div class="property-card">
+                            <div class="property-card-content">
+                                <div class="detail-block">
+                                    <h4>${prop.address}, ${prop.city}</h4>
+                                    <p><strong>Owner:</strong> ${prop.owner_name}</p>
+                                    <p><strong>Owner Phone:</strong> ${prop.owner_phone}</p>
+                                    <p><strong>Rent:</strong> ₹${rent.toFixed(2)} /mo</p>
+                                    <p><strong>Start Date:</strong> ${new Date(prop.start_date).toLocaleDateString()}</p>
+                                    ${statusHTML}
+                                </div>
+                                <div class="detail-block">
+                                    <h4>Actions</h4>
+                                    ${prop.end_date === null && prop.rent_due ? 
+                                        `<button class="btn btn-red" style="width:100%;" onclick="openPaymentModal(${prop.occupancy_id}, ${rent})">
+                                            Pay Rent Now
+                                        </button>` : ''
+                                    }
+                                    <button class="btn btn-blue" style="width:100%; margin-top: 10px;" onclick="openHistoryModal(${prop.occupancy_id})">
+                                        View Payment History
+                                    </button>
+                                    <button class="btn btn-grey" style="width:100%; margin-top: 10px;" onclick="openReviewModal(${prop.property_id})">
+                                        Write Review
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                listContainer.innerHTML = '<p style="text-align:center;">You have no rental history.</p>';
+            }
+        } catch (err) {
+             listContainer.innerHTML = `<p style="text-align:center; color: red;">Error: ${err.message}</p>`;
         }
+    }
 
-        .modal-content {
-            background-color: white;
-            padding: 30px;
-            border-radius: 10px;
-            max-width: 500px;
-            width: 90%;
-        }
+    // 3. Load "Browse Properties"
+    async function loadBrowsableProperties() {
+        const listContainer = document.getElementById('browse-list');
+        listContainer.innerHTML = '<p style="text-align:center;">Loading...</p>';
+        try {
+            const response = await fetch('/api/properties/browse');
+            const result = await response.json();
+            listContainer.innerHTML = ''; // Clear loading
 
-        .alert {
-            color: #e74c3c;
-            font-weight: bold;
-        }
+            if (result.success && result.data.length > 0) {
+                const availableProps = result.data.filter(p => p.status === 'Available');
+                if (availableProps.length === 0) {
+                    listContainer.innerHTML = '<p style="text-align:center;">No properties are available for rent right now.</p>';
+                    return;
+                }
+                
+                availableProps.forEach(prop => {
+                    const rent = parseFloat(prop.monthly_rent);
+                    const rating = prop.avg_rating ? `${parseFloat(prop.avg_rating).toFixed(1)} ⭐` : 'N/A';
 
-        .dashboard-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
+                    listContainer.innerHTML += `
+                        <div class="property-card">
+                            <div class="property-card-content">
+                                <div class="detail-block">
+                                    <h4>${prop.address}, ${prop.city}</h4>
+                                    <p><strong>Owner:</strong> ${prop.owner_name}</p>
+                                    <p><strong>Owner Phone:</strong> ${prop.owner_phone}</p>
+                                    <p><strong>Rent:</strong> ₹${rent.toFixed(2)} /mo</p>
+                                    <p><strong>Rating:</strong> ${rating}</p>
+                                </div>
+                                <div class="detail-block">
+                                    <h4>Manage</h4>
+                                    <p>${prop.description}</p>
+                                    <span class="status-badge status-available">Available</span>
+                                    <button class="btn btn-green" style="width:100%; margin-top: 10px;" onclick="handleRequestToRent(${prop.property_id})">
+                                        Request to Rent
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                listContainer.innerHTML = '<p style="text-align:center;">No properties found.</p>';
+            }
+        } catch (err) {
+             listContainer.innerHTML = `<p style="text-align:center; color: red;">Error: ${err.message}</p>`;
         }
+    }
+    
+    // --- Modal & Form Handling ---
 
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.remove('show');
+    }
 
-        .tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #ddd;
-        }
+    // --- Payment Logic ---
+    function openPaymentModal(occupancyId, amount) {
+        const currentMonthYear = new Date().strftime('%Y-%m');
+        paymentForm.reset();
+        document.getElementById('payment-occupancy-id').value = occupancyId;
+        document.getElementById('payment-amount').value = `₹${amount.toFixed(2)}`;
+        document.getElementById('payment-month-year').value = currentMonthYear;
+        paymentModal.classList.add('show');
+    }
+    
+    paymentForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = {
+            occupancy_id: document.getElementById('payment-occupancy-id').value,
+            amount: parseFloat(document.getElementById('payment-amount').value.replace('₹', '')),
+            month_year: document.getElementById('payment-month-year').value,
+            method: document.getElementById('payment-method').value
+        };
 
-        .tab-btn {
-            padding: 10px 20px;
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-            color: #666;
-            border-bottom: 3px solid transparent;
+        try {
+            const response = await fetch('/api/tenant/make_payment', { // NEW API Route
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                showToast(result.message);
+                closeModal('payment-modal');
+                loadMyRentals();
+                loadDashboardStats();
+            } else {
+                showToast('Error: ' + result.error, true);
+            }
+        } catch (err) {
+            showToast('Error: ' + err.message, true);
         }
+    });
 
-        .tab-btn.active {
-            color: #667eea;
-            border-bottom-color: #667eea;
+    // --- Payment History Logic ---
+    async function openHistoryModal(occupancyId) {
+        const tableBody = document.getElementById('payment-history-table-body');
+        tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Loading...</td></tr>';
+        historyModal.classList.add('show');
+        
+        try {
+            // We just need the payment data from the main rentals API
+            const response = await fetch('/api/tenant/rentals');
+            const result = await response.json();
+            if (result.success) {
+                const rental = result.data.find(r => r.occupancy_id === occupancyId);
+                tableBody.innerHTML = ''; // Clear
+                if (rental && rental.payments.length > 0) {
+                    rental.payments.forEach(p => {
+                        tableBody.innerHTML += `
+                            <tr>
+                                <td>${new Date(p.payment_date).toLocaleDateString()}</td>
+                                <td>₹${parseFloat(p.amount).toFixed(2)}</td>
+                                <td>${p.month_year}</td>
+                                <td>${p.method}</td>
+                                <td><span class="status-badge ${p.status === 'Paid' ? 'status-available' : 'status-rented'}">${p.status}</span></td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No payment history found.</td></tr>';
+                }
+            }
+        } catch(err) {
+            tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">${err.message}</td></tr>`;
         }
+    }
 
-        .tab-content {
-            display: none;
-        }
+    // --- Review Logic ---
+    function openReviewModal(propertyId) {
+        reviewForm.reset();
+        document.getElementById('review-property-id').value = propertyId;
+        reviewModal.classList.add('show');
+    }
 
-        .tab-content.active {
-            display: block;
-        }
+    reviewForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = {
+            property_id: document.getElementById('review-property-id').value,
+            rating: document.getElementById('review-rating').value,
+            comment: document.getElementById('review-comment').value
+        };
 
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
+        try {
+            const response = await fetch('/api/tenant/review', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                showToast(result.message);
+                closeModal('review-modal');
+            } else {
+                showToast('Error: ' + result.error, true);
+            }
+        } catch (err) {
+            showToast('Error: ' + err.message, true);
         }
+    });
+    
+    // --- Request to Rent Logic ---
+    async function handleRequestToRent(propertyId) {
+        if (!confirm('Are you sure you want to request to rent this property?')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/tenant/request-rent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ property_id: propertyId })
+            });
+            const result = await response.json();
 
-        .actions {
-            margin-top: 15px;
-            display: flex;
-            gap: 10px;
+            if (result.success) {
+                showToast(result.message);
+                showView('rentals'); // Go to "My Rentals" page
+            } else {
+                showToast('Error: ' + result.error, true);
+            }
+        } catch (err) {
+            showToast('Error: ' + err.message, true);
         }
+    }
 
-        .btn-danger {
-            background: #e74c3c;
-        }
-    </style>
+    // --- Success/Error Popup (Toast) ---
+    function showToast(message, isError = false) {
+        const toast = document.getElementById('toast-notification');
+        toast.textContent = message;
+        toast.style.background = isError ? '#e74c3c' : '#2ecc71'; 
+        
+        toast.classList.add('show');
+        
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+    
+    // Helper for date formatting
+    Date.prototype.strftime = function(format) {
+        var date = this;
+        return format.replace('%Y', date.getFullYear()).replace('%m', ('0' + (date.getMonth() + 1)).slice(-2));
+    };
+</script>
+
 </body>
 </html>
