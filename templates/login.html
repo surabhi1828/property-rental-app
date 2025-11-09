@@ -3,43 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - {{ role|title }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <title>Login - Property Rental</title>
+    <!-- Links to the new stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login_signup.css') }}">
 </head>
 <body>
-    
-    <div class="container">
-        <h1>{{ role|title }} Login</h1>
-        <form id="loginForm">
-            {% if role == 'admin' %}
-                <input type="text" id="username" placeholder="Username" required>
-                <input type="password" id="password" placeholder="Password" required>
-            {% else %}
-                <input type="text" id="name" placeholder="Full Name" required>
-                <input type="email" id="email" placeholder="Email" required>
-            {% endif %}
-            <button type="submit" class="btn">Login</button>
-        </form>
-        <div class="back-link">
-            <a href="/">← Back to Role Selection</a>
+
+    <!-- Navbar Section -->
+    <nav class="navbar-section">
+        <div class="navbar-content container">
+            <a href="/" class="navbar-brand">FindHome</a>
+            <div class="navbar-links">
+                <a href="{{ url_for('signup_page') }}">REGISTER</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Login Form -->
+    <div class="form-container-wrapper">
+        <div class="form-container">
+            <h2>Login as {{ role|title }}</h2>
+            
+            <form id="login-form">
+                <!-- This field is hidden but tells the API what role is logging in -->
+                <input type="hidden" id="role" name="role" value="{{ role }}">
+
+                {% if role == 'admin' %}
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" name="username" placeholder="admin" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" placeholder="admin" required>
+                    </div>
+                {% else %}
+                    <!-- Owner and Tenant login fields -->
+                    <div class="form-group">
+                        <label for="name">Full Name</label>
+                        <input type="text" id="name" name="name" placeholder="Enter your full name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" placeholder="Enter your email" required>
+                    </div>
+                {% endif %}
+
+                <button type="submit" class="btn btn-red">Login</button>
+
+                <div class="form-link">
+                    <p>Don't have an account? <a href="{{ url_for('signup_page') }}">Register</a></p>
+                    <p style="margin-top:10px;"><a href="{{ url_for('index') }}">&laquo; Back to role selection</a></p>
+                </div>
+            </form>
+
+            <p id="message" class="alert" style="display:none;"></p>
         </div>
     </div>
 
     <script>
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        // This script handles the login form submission to your API
+        document.getElementById('login-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            let data = { role: '{{ role }}' };
+            const form = e.target;
+            const messageEl = document.getElementById('message');
             
-            if ('{{ role }}' === 'admin') {
-                data.username = document.getElementById('username').value;
-                data.password = document.getElementById('password').value;
+            const data = {
+                role: form.role.value
+            };
+
+            if (data.role === 'admin') {
+                data.username = form.username.value;
+                data.password = form.password.value;
             } else {
-                data.name = document.getElementById('name').value;
-                data.email = document.getElementById('email').value;
+                data.name = form.name.value;
+                data.email = form.email.value;
             }
-            
+
             try {
                 const response = await fetch('/api/login', {
                     method: 'POST',
@@ -50,12 +91,19 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    window.location.href = result.redirect;
+                    messageEl.textContent = 'Login successful! Redirecting...';
+                    messageEl.className = 'alert alert-success';
+                    messageEl.style.display = 'block';
+                    window.location.href = result.redirect; // Redirect to dashboard
                 } else {
-                    alert(result.error);
+                    messageEl.textContent = 'Error: ' + result.error;
+                    messageEl.className = 'alert alert-error';
+                    messageEl.style.display = 'block';
                 }
-            } catch (error) {
-                alert('Login failed: ' + error.message);
+            } catch (err) {
+                messageEl.textContent = 'An error occurred. Please try again.';
+                messageEl.className = 'alert alert-error';
+                messageEl.style.display = 'block';
             }
         });
     </script>

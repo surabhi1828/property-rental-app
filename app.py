@@ -79,7 +79,8 @@ def index():
     session.clear()
     return render_template('index.html')
 
-@app.route('/login/<role>')
+# @app.route('/login/<role>')
+@app.route('/login-form/<role>')
 def login_page(role):
     """Login page for different roles"""
     if role not in ['admin', 'owner', 'tenant']:

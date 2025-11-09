@@ -3,30 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Property Rental System</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <title>Login - Property Rental</title>
+    <!-- Links to the NEW stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login_signup.css') }}">
+    <style>
+        /* This style helps make your emoji buttons look great! */
+        .emoji-icon {
+            font-size: 40px;
+            display: block;
+            margin-bottom: 10px;
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Property Rental Management System</h1>
-        <div class="role-selection">
-            <h2>Select Your Role</h2>
-            <div class="role-buttons">
-                <button onclick="window.location.href='/login/admin'" class="btn btn-admin">
-                    <span style="font-size: 40px;">🔐</span><br>Admin
-                </button>
-                <button onclick="window.location.href='/login/owner'" class="btn btn-owner">
-                    <span style="font-size: 40px;">🏠</span><br>Property Owner
-                </button>
-                <button onclick="window.location.href='/login/tenant'" class="btn btn-tenant">
-                    <span style="font-size: 40px;">👤</span><br>Tenant
-                </button>
+
+    <!-- Navbar Section (from login_signup.css) -->
+    <nav class="navbar-section">
+        <div class="navbar-content container">
+            <a href="/" class="navbar-brand">FindHome</a>
+            <div class="navbar-links">
+                <a href="/">SEARCH</a>
+                <a href="{{ url_for('signup_page') }}">REGISTER</a>
             </div>
-            <div class="signup-link">
-                <p>Don't have an account? <a href="/signup">Sign Up</a></p>
+        </div>
+    </nav>
+
+    <!-- Role Selection Form (using new styles) -->
+    <div class="form-container-wrapper">
+        <div class="form-container">
+            <h2>Select Your Role</h2>
+            
+            <div class="role-buttons">
+                <!-- 
+                  We are now using <a> tags styled as buttons, 
+                  which is better practice than onclick.
+                -->
+                <a href="/login-form/admin" class="role-btn btn-admin">
+                    <span class="emoji-icon">🔐</span>
+                    Admin
+                </a>
+                
+                <a href="/login-form/owner" class="role-btn btn-owner">
+                    <span class="emoji-icon">🏠</span>
+                    Property Owner
+                </a>
+                
+                <a href="/login-form/tenant" class="role-btn btn-tenant">
+                    <span class="emoji-icon">👤</span>
+                    Tenant
+                </a>
+            </div>
+
+            <div class="form-link">
+                <!-- <p>Don't have an account? <a href="{{ url_for('signup_page') }}">Register</a></p> -->
+                <p style="margin-top:10px;"><a href="/">&laquo; Back to Home Page</a></p>
             </div>
         </div>
     </div>
+
 </body>
 </html>
