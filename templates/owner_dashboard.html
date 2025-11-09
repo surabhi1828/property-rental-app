@@ -3,256 +3,504 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Owner Dashboard - Property Rental System</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <title>Owner Dashboard</title>
+    <!-- Links to the new dashboard stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/owner_dashboard.css') }}">
 </head>
 <body>
-    <div class="container">
-        <div class="dashboard-header">
-            <h1>Owner Dashboard</h1>
-            <div class="user-info">
-                <span>Welcome, {{ user_name }}</span>
-                <a href="/logout" class="btn logout-btn">Logout</a>
-            </div>
-        </div>
 
-        <div class="tabs">
-            <button class="tab-btn active" onclick="showTab('myProperties')">My Properties</button>
-            <button class="tab-btn" onclick="showTab('browse')">Browse Properties</button>
-        </div>
-
-        <!-- My Properties Tab -->
-        <div id="myProperties" class="tab-content active">
-            <div class="section-header">
-                <h2>My Properties</h2>
-                <button class="btn btn-owner" onclick="showAddPropertyForm()">+ Add Property</button>
-            </div>
-            
-            <div id="addPropertyForm" style="display:none;">
-                <h3>Add New Property</h3>
-                <form id="propertyForm">
-                    <input type="text" id="address" placeholder="Address" required>
-                    <input type="text" id="city" placeholder="City" required>
-                    <textarea id="description" placeholder="Description"></textarea>
-                    <input type="number" id="sq_footage" placeholder="Square Footage" required>
-                    <input type="number" id="monthly_rent" placeholder="Monthly Rent (₹)" step="0.01" required>
-                    <button type="submit" class="btn btn-owner">Add Property</button>
-                    <button type="button" class="btn" onclick="hideAddPropertyForm()">Cancel</button>
-                </form>
-            </div>
-
-            <div id="myPropertiesContainer"></div>
-        </div>
-
-        <!-- Browse Tab -->
-        <div id="browse" class="tab-content">
-            <h2>Browse All Properties</h2>
-            <div id="browseContainer"></div>
-        </div>
+    <!-- This is the success slider/popup, hidden by default -->
+    <div id="toast-notification" class="toast-notification">
+        Success! Your property has been updated.
     </div>
 
-    <script>
-        function showTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            
-            document.getElementById(tabName).classList.add('active');
-            event.target.classList.add('active');
-            
-            if (tabName === 'browse') {
-                loadBrowseProperties();
-            }
-        }
+    <!-- NEW: Assign Tenant Modal (Hidden by default) -->
+    <div id="assign-tenant-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Assign Tenant to Property</h2>
+                <span class="close-btn" onclick="closeModal()">&times;</span>
+            </div>
+            <form id="assign-tenant-form">
+                <input type="hidden" id="assign_property_id">
+                <div class="form-group">
+                    <label for="tenant-select">Select a Tenant:</label>
+                    <select id="tenant-select" required>
+                        <!-- Tenants will be loaded here by JS -->
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-submit-assign">Assign Tenant</button>
+            </form>
+        </div>
+    </div>
+    <!-- End Modal -->
 
-        function showAddPropertyForm() {
-            document.getElementById('addPropertyForm').style.display = 'block';
-        }
+    <div class="dashboard-wrapper">
+        
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                FindHome
+            </div>
+            <div class="sidebar-nav">
+                <a class="nav-link active" data-view="dashboard">Dashboard</a>
+                <a class="nav-link" data-view="properties">My Properties</a>
+                <a class="nav-link" data-view="register">Register Property</a>
+                <a class="nav-link" data-view="delete">Delete Property</a>
+            </div>
+        </nav>
 
-        function hideAddPropertyForm() {
-            document.getElementById('addPropertyForm').style.display = 'none';
-            document.getElementById('propertyForm').reset();
-        }
+        <!-- Main Content (Navbar + Page) -->
+        <main class="main-content">
 
-        document.getElementById('propertyForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const data = {
-                address: document.getElementById('address').value,
-                city: document.getElementById('city').value,
-                description: document.getElementById('description').value,
-                sq_footage: document.getElementById('sq_footage').value,
-                monthly_rent: document.getElementById('monthly_rent').value
-            };
-            
-            try {
-                const response = await fetch('/api/owner/property', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert(result.message || 'Property added successfully!');
-                    hideAddPropertyForm();
-                    loadMyProperties();
-                } else {
-                    alert('Failed to add property: ' + result.error);
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
-            }
-        });
+            <!-- Top Navbar -->
+            <header class="top-navbar">
+                <h1 id="page-title">Dashboard</h1>
+                <div class="user-info">
+                    <span>Welcome, {{ session.user_name }}</span>
+                    <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
+                </div>
+            </header>
 
-        async function loadMyProperties() {
-            try {
-                const response = await fetch('/api/owner/properties');
-                const result = await response.json();
-                
-                if (result.success) {
-                    displayMyProperties(result.data);
-                } else {
-                    alert('Failed to load properties: ' + result.error);
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
-            }
-        }
+            <!-- Page Content (Dynamic) -->
+            <div class="page-content">
 
-        function displayMyProperties(properties) {
-            const container = document.getElementById('myPropertiesContainer');
-            container.innerHTML = '';
-            
-            if (properties.length === 0) {
-                container.innerHTML = '<p>You have no properties yet. Add one above!</p>';
-                return;
-            }
-            
-            properties.forEach(prop => {
-                const statusClass = `status-${prop.status.toLowerCase()}`;
-                const avgRating = prop.avg_rating ? prop.avg_rating.toFixed(1) : 'N/A';
-                
-                const card = document.createElement('div');
-                card.className = 'property-card';
-                card.innerHTML = `
-                    <h3>${prop.address}</h3>
-                    <p><strong>City:</strong> ${prop.city || 'N/A'}</p>
-                    <p><strong>Description:</strong> ${prop.description || 'N/A'}</p>
-                    <p><strong>Size:</strong> ${prop.sq_footage || 'N/A'} sq ft</p>
-                    <p><strong>Monthly Rent:</strong> ₹${prop.monthly_rent}</p>
-                    <p><strong>Status:</strong> <span class="status-badge ${statusClass}">${prop.status}</span></p>
-                    <p><strong>Average Rating:</strong> ${avgRating} ⭐</p>
-                    
-                    ${prop.tenant_name ? `
-                        <div class="tenant-info">
-                            <h4>Current Tenant</h4>
-                            <p><strong>Name:</strong> ${prop.tenant_name}</p>
-                            <p><strong>Email:</strong> ${prop.tenant_email || 'N/A'}</p>
-                            <p><strong>Phone:</strong> ${prop.tenant_phone || 'N/A'}</p>
-                            <p><strong>Start Date:</strong> ${prop.start_date || 'N/A'}</p>
+                <!-- 1. Dashboard View (Default) -->
+                <section id="dashboard-view" class="content-section active">
+                    <div class="dashboard-cards">
+                        <div class="card card-green" onclick="showView('properties')">
+                            <h3>Total Properties</h3>
+                            <p id="total-properties-stat">0</p>
                         </div>
-                        
-                        ${prop.payments && prop.payments.length > 0 ? `
-                            <div class="payments">
-                                <h4>Payment History</h4>
-                                ${prop.payments.map(p => `
-                                    <p>${p.month_year}: ₹${p.amount} - ${p.status} (${p.payment_date})</p>
-                                `).join('')}
-                            </div>
-                        ` : ''}
-                    ` : '<p><em>No current tenant</em></p>'}
-                    
-                    ${prop.reviews.length > 0 ? `
-                        <div class="reviews">
-                            <h4>Reviews</h4>
-                            ${prop.reviews.map(r => `
-                                <div class="review">
-                                    <p><strong>${r.tenant_name}</strong> - ${r.rating} ⭐ (${r.review_date})</p>
-                                    <p>${r.comment || 'No comment'}</p>
-                                </div>
-                            `).join('')}
+                        <div class="card card-blue" onclick="showView('properties')">
+                            <h3>Properties Rented</h3>
+                            <p id="rented-properties-stat">0</p>
                         </div>
-                    ` : '<p><em>No reviews yet</em></p>'}
-                    
-                    <div class="actions">
-                        <button class="btn" onclick="editProperty(${prop.property_id})">Edit</button>
-                        <button class="btn btn-danger" onclick="deleteProperty(${prop.property_id})">Delete</button>
                     </div>
-                `;
-                container.appendChild(card);
-            });
+                </section>
+
+                <!-- 2. My Properties View (Hidden) -->
+                <section id="properties-view" class="content-section">
+                    <h2>My Registered Properties</h2>
+                    <div id="properties-list">
+                        <!-- Property cards will be injected here by JS -->
+                    </div>
+                </section>
+
+                <!-- 3. Register/Edit Property View (Hidden) -->
+                <section id="register-view" class="content-section">
+                    <div class="form-container">
+                        <h2 id="form-title">Register New Property</h2>
+                        <form id="property-form">
+                            <input type="hidden" id="property_id" name="property_id">
+                            
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="address">Address / Home Number</label>
+                                    <input type="text" id="address" name="address" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="city">City</label>
+                                    <input type="text" id="city" name="city" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="monthly_rent">Rent (per month)</label>
+                                    <input type="number" id="monthly_rent" name="monthly_rent" required step="0.01">
+                                </div>
+                                <div class="form-group">
+                                    <label for="sq_footage">Sq. Footage (e.g., 1200)</label>
+                                    <input type="number" id="sq_footage" name="sq_footage" required>
+                                </div>
+                                <div class="form-group full-width">
+                                    <label for="description">Description</label>
+                                    <textarea id="description" name="description" required></textarea>
+                                </div>
+                                
+                                <div class="form-group full-width" id="status-form-group" style="display: none;">
+                                    <label for="status">Status</label>
+                                    <select id="status" name="status">
+                                        <option value="Available">Available</option>
+                                        <option value="Rented">Rented</option>
+                                        <option value="Maintenance">Maintenance</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group full-width">
+                                    <button type="submit" class="btn btn-submit">Save Property</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- 4. Delete Property View (Hidden) -->
+                <section id="delete-view" class="content-section">
+                    <h2>Delete Property</h2>
+                    <p>Warning: This action is permanent and cannot be undone.</p>
+                    <div id="delete-list">
+                        <!-- Simple list of properties to delete -->
+                    </div>
+                </section>
+
+            </div> <!-- End Page Content -->
+        </main> <!-- End Main Content -->
+    </div> <!-- End Dashboard Wrapper -->
+
+<script>
+    // --- Global Variables ---
+    const allNavLinks = document.querySelectorAll('.sidebar-nav .nav-link');
+    const allContentSections = document.querySelectorAll('.content-section');
+    const pageTitle = document.getElementById('page-title');
+    const propertyForm = document.getElementById('property-form');
+    const formTitle = document.getElementById('form-title');
+    const hiddenPropId = document.getElementById('property_id');
+    const statusFieldGroup = document.getElementById('status-form-group');
+    const assignTenantModal = document.getElementById('assign-tenant-modal');
+    const assignTenantForm = document.getElementById('assign-tenant-form');
+    const tenantSelect = document.getElementById('tenant-select');
+    const hiddenAssignPropertyId = document.getElementById('assign_property_id');
+    const modalTitle = document.getElementById('modal-title');
+
+    // --- View Switching Logic ---
+    function showView(viewId, dataToPass = null) {
+        allContentSections.forEach(section => section.classList.remove('active'));
+        allNavLinks.forEach(link => link.classList.remove('active'));
+
+        const targetSection = document.getElementById(viewId + '-view');
+        if (targetSection) targetSection.classList.add('active');
+
+        const targetLink = document.querySelector(`.nav-link[data-view="${viewId}"]`);
+        if (targetLink) {
+            targetLink.classList.add('active');
+            pageTitle.textContent = targetLink.textContent;
         }
 
-        async function deleteProperty(propertyId) {
-            if (!confirm('Are you sure you want to delete this property?')) return;
-            
-            try {
-                const response = await fetch(`/api/owner/property/${propertyId}`, {
-                    method: 'DELETE'
+        // --- View-Specific Logic ---
+        if (viewId === 'dashboard') loadDashboardStats();
+        if (viewId === 'properties') loadMyProperties();
+        if (viewId === 'register') {
+            if (dataToPass) {
+                setupEditPropertyForm(dataToPass); // This is an EDIT
+            } else {
+                setupNewPropertyForm(); // This is a NEW registration
+            }
+        }
+        if (viewId === 'delete') loadDeleteList();
+    }
+
+    allNavLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const viewId = link.getAttribute('data-view');
+            showView(viewId);
+        });
+    });
+
+    // --- Data Loading Functions ---
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDashboardStats(); // Load stats on initial page load
+    });
+
+    // 1. Load Dashboard Stats
+    async function loadDashboardStats() {
+        try {
+            const response = await fetch('/api/owner/stats'); 
+            const result = await response.json();
+            if (result.success) {
+                document.getElementById('total-properties-stat').textContent = result.data.total_properties;
+                document.getElementById('rented-properties-stat').textContent = result.data.rented_properties;
+            }
+        } catch (err) { console.error('Error loading stats:', err); }
+    }
+
+    // 2. Load "My Properties" Cards
+    async function loadMyProperties() {
+        const listContainer = document.getElementById('properties-list');
+        listContainer.innerHTML = '<p style="text-align:center;">Loading...</p>';
+        try {
+            const response = await fetch('/api/owner/properties');
+            const result = await response.json();
+            listContainer.innerHTML = ''; // Clear loading
+
+            if (result.success && result.data.length > 0) {
+                result.data.forEach(prop => {
+                    const rent = parseFloat(prop.monthly_rent);
+                    let statusHTML = '';
+                    
+                    if (prop.status === 'Available') {
+                        statusHTML = `
+                            <span class="status-badge status-available">Available</span>
+                            <button class="btn-assign" onclick="openAssignModal(${prop.property_id}, '${prop.address}')">
+                                Assign Tenant
+                            </button>
+                        `;
+                    } else if (prop.status === 'Rented') {
+                        statusHTML = `
+                            <span class="status-badge status-rented">Rented</span>
+                            <button class="btn-end-tenancy" onclick="handleEndTenancy(${prop.occupancy_id})">
+                                End Tenancy
+                            </button>
+                        `;
+                    } else { // Maintenance
+                        statusHTML = `<span class="status-badge status-maintenance">${prop.status}</span>`;
+                    }
+
+                    listContainer.innerHTML += `
+                        <div class="property-card">
+                            <button class="btn-edit" onclick="handleEditClick(${prop.property_id})">Edit</button>
+                            <div class="property-card-content">
+                                <div class="detail-block">
+                                    <h4>Property Details</h4>
+                                    <p><strong>Address:</strong> ${prop.address}</p>
+                                    <p><strong>City:</strong> ${prop.city}</p>
+                                    <p><strong>Rent:</strong> ₹${rent.toFixed(2)} /mo</p>
+                                    <p><strong>Sq. Ft:</strong> ${prop.sq_footage} sq.ft.</p>
+                                </div>
+                                <div class="detail-block">
+                                    <h4>Current Tenant</h4>
+                                    <p><strong>Name:</strong> ${prop.tenant_name || 'N/A'}</p>
+                                    
+                                    <!-- ================== THE FIX IS HERE ================== -->
+                                    <!-- The extra </button> tag is removed -->
+                                    <p><strong>Phone:</strong> ${prop.tenant_phone || 'N/A'}</p>
+                                    <p><strong>Email:</strong> ${prop.tenant_email || 'N/A'}</p>
+                                    <!-- =================================================== -->
+
+                                </div>
+                                <div class="detail-block">
+                                    <h4>Manage Status</h4>
+                                    <p><strong>Description:</strong> ${prop.description}</p>
+                                    ${statusHTML}
+                                </div>
+                            </div>
+                        </div>
+                    `;
                 });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert(result.message || 'Property deleted successfully!');
-                    loadMyProperties();
-                } else {
-                    alert('Failed to delete property: ' + result.error);
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
+            } else if (result.success) {
+                listContainer.innerHTML = '<p style="text-align:center;">You have not registered any properties yet.</p>';
+            } else {
+                listContainer.innerHTML = `<p style="text-align:center; color: red;">Error: ${result.error}</p>`;
             }
+        } catch (err) {
+             listContainer.innerHTML = `<p style="text-align:center; color: red;">Error: ${err.message}</p>`;
         }
+    }
 
-        function editProperty(propertyId) {
-            alert('Edit functionality - you can implement a modal form for editing');
-        }
+    // 3. Load "Delete" List
+    async function loadDeleteList() {
+        const listContainer = document.getElementById('delete-list');
+        listContainer.innerHTML = '<p style="text-align:center;">Loading...</p>';
+        try {
+            const response = await fetch('/api/owner/properties');
+            const result = await response.json();
+            listContainer.innerHTML = '';
+            if (result.success && result.data.length > 0) {
+                result.data.forEach(prop => {
+                    listContainer.innerHTML += `
+                        <div class="delete-list-item">
+                            <p><strong>${prop.address},</strong> ${prop.city} <em>(Status: ${prop.status})</em></p>
+                            <button class="btn-delete" onclick="handleDelete(${prop.property_id})">DELETE</button>
+                        </div>
+                    `;
+                });
+            } else { listContainer.innerHTML = '<p style="text-align:center;">You have no properties to delete.</p>'; }
+        } catch (err) { listContainer.innerHTML = `<p style="text-align:center; color: red;">Error: ${err.message}</p>`; }
+    }
 
-        async function loadBrowseProperties() {
-            try {
-                const response = await fetch('/api/properties/browse');
-                const result = await response.json();
-                
-                if (result.success) {
-                    displayBrowseProperties(result.data);
-                }
-            } catch (error) {
-                console.error('Error loading browse properties:', error);
+    // --- Form Handling Logic ---
+
+    function setupNewPropertyForm() {
+        propertyForm.reset(); 
+        hiddenPropId.value = ''; 
+        formTitle.textContent = 'Register New Property';
+        statusFieldGroup.style.display = 'none'; 
+    }
+    
+    async function handleEditClick(propertyId) {
+        try {
+            const response = await fetch(`/api/owner/property/${propertyId}`); 
+            const result = await response.json();
+            if (result.success) {
+                showView('register', result.data); 
+            } else {
+                showToast('Error: ' + result.error, true);
             }
+        } catch (err) {
+            showToast('Error: ' + err.message, true);
+        }
+    }
+
+    function setupEditPropertyForm(property) {
+        propertyForm.reset(); 
+        formTitle.textContent = `Edit Property: ${property.address}`;
+        statusFieldGroup.style.display = 'block'; // SHOW status field
+        
+        hiddenPropId.value = property.property_id;
+        document.getElementById('address').value = property.address;
+        document.getElementById('city').value = property.city;
+        document.getElementById('monthly_rent').value = property.monthly_rent;
+        document.getElementById('sq_footage').value = property.sq_footage;
+        document.getElementById('description').value = property.description;
+        document.getElementById('status').value = property.status;
+    }
+
+    // Handle Form Submit (CREATE or UPDATE)
+    propertyForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(propertyForm);
+        const data = Object.fromEntries(formData.entries());
+        const propertyId = hiddenPropId.value;
+        
+        let url = '/api/owner/property';
+        let method = 'POST';
+
+        if (propertyId) {
+            url = `/api/owner/property/${propertyId}`;
+            method = 'PUT';
+        } else {
+            delete data.status;
         }
 
-        function displayBrowseProperties(properties) {
-            const container = document.getElementById('browseContainer');
-            container.innerHTML = '';
-            
-            properties.forEach(prop => {
-                const statusClass = `status-${prop.status.toLowerCase()}`;
-                const avgRating = prop.avg_rating ? prop.avg_rating.toFixed(1) : 'N/A';
-                
-                const card = document.createElement('div');
-                card.className = 'property-card';
-                card.innerHTML = `
-                    <h3>${prop.address}</h3>
-                    <p><strong>City:</strong> ${prop.city || 'N/A'}</p>
-                    <p><strong>Description:</strong> ${prop.description || 'N/A'}</p>
-                    <p><strong>Size:</strong> ${prop.sq_footage || 'N/A'} sq ft</p>
-                    <p><strong>Monthly Rent:</strong> ₹${prop.monthly_rent}</p>
-                    <p><strong>Status:</strong> <span class="status-badge ${statusClass}">${prop.status}</span></p>
-                    <p><strong>Rating:</strong> ${avgRating} ⭐</p>
-                    <p><strong>Owner:</strong> ${prop.owner_name} - ${prop.owner_phone || 'N/A'}</p>
-                `;
-                container.appendChild(card);
+        try {
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
             });
+            const result = await response.json();
+
+            if (result.success) {
+                showToast(result.message); 
+                showView('properties'); 
+            } else {
+                showToast('Error: ' + result.error, true);
+            }
+        } catch (err) {
+            showToast('Error: ' + err.message, true);
+        }
+    });
+
+    // Handle Delete
+    async function handleDelete(propertyId) {
+        if (!confirm('Are you sure you want to delete this property? This action is permanent.')) {
+            return;
+        }
+        try {
+            const response = await fetch(`/api/owner/property/${propertyId}`, {
+                method: 'DELETE'
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                showToast(result.message);
+                loadDeleteList(); // Refresh the list
+                loadDashboardStats(); // Refresh stats
+            } else {
+                showToast('Error: ' + result.error, true);
+            }
+        } catch (err) {
+            showToast('Error: ' + err.message, true);
+        }
+    }
+
+    // --- NEW: Tenancy Management Functions ---
+    
+    function openAssignModal(propertyId, address) {
+        modalTitle.textContent = `Assign Tenant to: ${address}`;
+        hiddenAssignPropertyId.value = propertyId;
+        
+        fetch('/api/owner/all_tenants')
+            .then(res => res.json())
+            .then(result => {
+                tenantSelect.innerHTML = '<option value="" disabled selected>Select a tenant...</option>'; // Clear
+                if (result.success) {
+                    result.data.forEach(tenant => {
+                        tenantSelect.innerHTML += `
+                            <option value="${tenant.tenant_id}">${tenant.name} (${tenant.email})</option>
+                        `;
+                    });
+                }
+                assignTenantModal.classList.add('show');
+            })
+            .catch(err => showToast('Error fetching tenants: ' + err.message, true));
+    }
+
+    function closeModal() {
+        assignTenantModal.classList.remove('show');
+    }
+
+    assignTenantForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const tenantId = tenantSelect.value;
+        const propertyId = hiddenAssignPropertyId.value;
+        
+        if (!tenantId) {
+            showToast('Please select a tenant.', true);
+            return;
         }
 
-        // Load properties on page load
-        loadMyProperties();
-    </script>
+        try {
+            const response = await fetch('/api/owner/assign_tenant', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tenant_id: tenantId, property_id: propertyId })
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                showToast(result.message);
+                closeModal();
+                loadMyProperties(); 
+                loadDashboardStats(); 
+            } else {
+                // ================== I ALSO FIXED THIS TYPO ('t') ==================
+                showToast('Error: ' + result.error, true);
+            }
+        } catch (err) {
+            showToast('Error: ' + err.message, true);
+        }
+    });
+
+    async function handleEndTenancy(occupancyId) {
+        if (!confirm('Are you sure you want to end this tenancy? The property will become Available.')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/owner/end_tenancy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ occupancy_id: occupancyId })
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                showToast(result.message);
+                loadMyProperties(); // Refresh the list
+                loadDashboardStats(); // Refresh the stats
+            } else {
+                // ================== AND I FIXED THIS TYPO ('V ') ==================
+                showToast('Error: ' + result.error, true);
+            }
+        } catch (err) {
+            showToast('Error: ' + err.message, true);
+        }
+    }
+
+
+    // --- Success/Error Popup (Toast) ---
+    function showToast(message, isError = false) {
+        const toast = document.getElementById('toast-notification');
+        toast.textContent = message;
+        toast.style.background = isError ? '#e74c3c' : '#2ecc71'; 
+        
+        toast.classList.add('show');
+        
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+</script>
+
 </body>
 </html>

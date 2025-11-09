@@ -18,8 +18,6 @@ with app.app_context():
     db.connect()
 
 
-# ==================== AUTHENTICATION ROUTES ====================
-
 # ==================== PUBLIC HOME & AUTH ROUTES ====================
 
 @app.route('/', methods=['GET', 'POST'])
@@ -79,7 +77,6 @@ def index():
     session.clear()
     return render_template('index.html')
 
-# @app.route('/login/<role>')
 @app.route('/login-form/<role>')
 def login_page(role):
     """Login page for different roles"""
@@ -104,8 +101,9 @@ def login():
             return jsonify({'success': False, 'error': 'Invalid admin credentials'})
     
     elif role in ['owner', 'tenant']:
-        name = data.get('name')
-        email = data.get('email')
+        # Use .strip() to remove any leading/trailing whitespace
+        name = data.get('name', '').strip()
+        email = data.get('email', '').strip()
         
         # Query appropriate table
         table = 'OWNER' if role == 'owner' else 'TENANT'
@@ -162,8 +160,6 @@ def logout():
     session.clear()
     return redirect(url_for('index'))
 
-# ==================== ADMIN ROUTES ====================
-
 # ==================== ADMIN ROUTES (Safer Version) ====================
 
 @app.route('/admin')
@@ -188,15 +184,12 @@ def admin_stats():
         query_props = "SELECT COUNT(*) AS count FROM PROPERTY"
         props_result = db.execute_query(query_props, ())
         
-        query_reviews = "SELECT COUNT(*) AS count FROM REVIEW"
-        reviews_result = db.execute_query(query_reviews, ())
-
         stats = {
-            'total_users': users_result['data'][0]['count'] if users_result['success'] else 0,
-            'total_properties': props_result['data'][0]['count'] if props_result['success'] else 0,
-            'total_reviews': (reviews_result['data'][0]['count'] or 0) if (reviews_result['success'] and reviews_result['data']) else 0
+            'total_users': (users_result['data'][0]['count'] or 0) if (users_result['success'] and users_result['data']) else 0,
+            'total_properties': (props_result['data'][0]['count'] or 0) if (props_result['success'] and props_result['data']) else 0
         }
         return jsonify({'success': True, 'data': stats})
+
     except Exception as e:
         print(f"!!! ERROR in /api/admin/stats: {e}")
         return jsonify({'success': False, 'error': str(e)})
@@ -270,6 +263,7 @@ def admin_all_complaints():
     except Exception as e:
         print(f"!!! ERROR in /api/admin/all_complaints: {e}")
         return jsonify({'success': False, 'error': str(e)})
+
 # ==================== OWNER ROUTES ====================
 
 @app.route('/owner')
@@ -282,6 +276,9 @@ def owner_dashboard():
 @app.route('/api/owner/properties')
 def owner_properties():
     """Get owner's properties"""
+    if session.get('role') != 'owner':
+        return jsonify({'success': False, 'error': 'Unauthorized'})
+        
     owner_id = session.get('user_id')
     
     query = """
@@ -306,39 +303,69 @@ def owner_properties():
     WHERE p.owner_id = %s
     ORDER BY p.property_id
     """
-    result = db.execute_query(query, (owner_id,))
     
-    if result['success']:
-        # Get reviews and payments for each property
-        for prop in result['data']:
-            # Reviews
-            review_query = """
-            SELECT r.rating, r.comment, r.review_date, t.name AS tenant_name
-            FROM REVIEW r
-            JOIN TENANT t ON r.tenant_id = t.tenant_id
-            WHERE r.property_id = %s
-            ORDER BY r.review_date DESC
-            """
-            reviews = db.execute_query(review_query, (prop['property_id'],))
-            prop['reviews'] = reviews['data'] if reviews['success'] else []
-            
-            # Average rating
-            avg_query = "SELECT fn_get_avg_rating(%s) AS avg_rating"
-            avg_result = db.execute_query(avg_query, (prop['property_id'],))
-            prop['avg_rating'] = avg_result['data'][0]['avg_rating'] if avg_result['success'] else None
-            
-            # Payment history if occupied
-            if prop['occupancy_id']:
-                payment_query = """
-                SELECT payment_id, amount, payment_date, month_year, method, status
-                FROM PAYMENTS
-                WHERE occupancy_id = %s
-                ORDER BY payment_date DESC
-                """
-                payments = db.execute_query(payment_query, (prop['occupancy_id'],))
-                prop['payments'] = payments['data'] if payments['success'] else []
+    try:
+        # We call the query and immediately return it.
+        # The complex loop that caused the crash has been removed.
+        result = db.execute_query(query, (owner_id,))
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"!!! ERROR in /api/owner/properties: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+# --- ADD THIS NEW ROUTE ---
+@app.route('/api/owner/stats')
+def owner_stats():
+    """Get dashboard stats for the logged-in owner."""
+    if session.get('role') != 'owner':
+        return jsonify({'success': False, 'error': 'Unauthorized'})
     
-    return jsonify(result)
+    owner_id = session.get('user_id')
+    
+    try:
+        query_total = "SELECT COUNT(*) AS count FROM PROPERTY WHERE owner_id = %s"
+        total_result = db.execute_query(query_total, (owner_id,))
+        
+        query_rented = "SELECT COUNT(*) AS count FROM PROPERTY WHERE owner_id = %s AND status = 'Rented'"
+        rented_result = db.execute_query(query_rented, (owner_id,))
+        
+        stats = {
+            'total_properties': (total_result['data'][0]['count'] or 0) if (total_result['success'] and total_result['data']) else 0,
+            'rented_properties': (rented_result['data'][0]['count'] or 0) if (rented_result['success'] and rented_result['data']) else 0
+        }
+        return jsonify({'success': True, 'data': stats})
+        
+    except Exception as e:
+        print(f"!!! ERROR in /api/owner/stats: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# --- ADD THIS NEW ROUTE ---
+@app.route('/api/owner/property/<int:property_id>', methods=['GET'])
+def get_owner_property_details(property_id):
+    """Get details for a single property, verifying ownership."""
+    if session.get('role') != 'owner':
+        return jsonify({'success': False, 'error': 'Unauthorized'})
+        
+    owner_id = session.get('user_id')
+    
+    try:
+        # Verify ownership and get details
+        query = "SELECT * FROM PROPERTY WHERE property_id = %s AND owner_id = %s"
+        result = db.execute_query(query, (property_id, owner_id))
+        
+        if result['success'] and len(result['data']) > 0:
+            return jsonify({'success': True, 'data': result['data'][0]})
+        elif result['success']:
+            return jsonify({'success': False, 'error': 'Property not found or not owned by you'})
+        else:
+            return jsonify(result) # Send back the database error
+            
+    except Exception as e:
+        print(f"!!! ERROR in /api/owner/property/<id>: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
 
 @app.route('/api/owner/property', methods=['POST'])
 def create_property():
@@ -429,13 +456,140 @@ def delete_property(property_id):
     if check['data'][0]['owner_id'] != owner_id:
         return jsonify({'success': False, 'error': 'Unauthorized'})
     
-    query = "DELETE FROM PROPERTY WHERE property_id = %s"
-    result = db.execute_query(query, (property_id,), fetch=False)
+    # We must delete child records first (reviews, payments, occupancy)
+    # This is a good place to use a Stored Procedure, but for now, we do it manually
+    try:
+        # Find occupancy records to delete payments
+        occ_query = "SELECT occupancy_id FROM OCCUPANCY WHERE property_id = %s"
+        occ_result = db.execute_query(occ_query, (property_id,))
+        if occ_result['success'] and occ_result['data']:
+            occ_ids = [row['occupancy_id'] for row in occ_result['data']]
+            # Create a string for the IN clause, e.g., (1, 2, 3)
+            occ_id_list = ','.join(map(str, occ_ids))
+            
+            pay_query = f"DELETE FROM PAYMENTS WHERE occupancy_id IN ({occ_id_list})"
+            db.execute_query(pay_query, (), fetch=False)
+
+        # Now delete reviews, occupancy, and finally the property
+        db.execute_query("DELETE FROM REVIEW WHERE property_id = %s", (property_id,), fetch=False)
+        db.execute_query("DELETE FROM OCCUPANCY WHERE property_id = %s", (property_id,), fetch=False)
+        result = db.execute_query("DELETE FROM PROPERTY WHERE property_id = %s", (property_id,), fetch=False)
+        
+        if result['success']:
+            result['message'] = 'Property and all related records deleted successfully'
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"!!! ERROR in /api/owner/property/DELETE: {e}")
+        return jsonify({'success': False, 'error': 'A database error occurred during deletion.'})
+
+
+
+# ==================== OWNER ROUTES ====================
+
+# ... (keep your existing /owner, /api/owner/properties, etc.) ...
+
+# --- ADD THIS NEW ROUTE ---
+@app.route('/api/owner/all_tenants')
+def get_all_tenants():
+    """Fetches all tenants to populate a dropdown."""
+    if session.get('role') != 'owner':
+        return jsonify({'success': False, 'error': 'Unauthorized'})
     
-    if result['success']:
-        result['message'] = 'Property deleted successfully'
-    
-    return jsonify(result)
+    try:
+        query = "SELECT tenant_id, name, email FROM TENANT ORDER BY name"
+        result = db.execute_query(query, ())
+        return jsonify(result)
+    except Exception as e:
+        print(f"!!! ERROR in /api/owner/all_tenants: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+# --- ADD THIS NEW ROUTE ---
+@app.route('/api/owner/assign_tenant', methods=['POST'])
+def assign_tenant():
+    """Assigns a tenant to a property by creating an OCCUPANCY record."""
+    if session.get('role') != 'owner':
+        return jsonify({'success': False, 'error': 'Unauthorized'})
+        
+    data = request.json
+    property_id = data.get('property_id')
+    tenant_id = data.get('tenant_id')
+    owner_id = session.get('user_id')
+
+    try:
+        # First, check if owner actually owns this property
+        check_query = "SELECT owner_id, status FROM PROPERTY WHERE property_id = %s"
+        check = db.execute_query(check_query, (property_id,))
+        
+        if not check['success'] or not check['data']:
+            return jsonify({'success': False, 'error': 'Property not found'})
+        if check['data'][0]['owner_id'] != owner_id:
+            return jsonify({'success': False, 'error': 'Unauthorized'})
+        if check['data'][0]['status'] != 'Available':
+             return jsonify({'success': False, 'error': 'Property is already rented'})
+
+        # Create the new occupancy record
+        query = """
+            INSERT INTO OCCUPANCY (tenant_id, property_id, start_date)
+            VALUES (%s, %s, CURDATE())
+        """
+        result = db.execute_query(query, (tenant_id, property_id), fetch=False)
+        
+        if result['success']:
+            # The trg_update_property_status_on_checkin trigger
+            # will automatically set the property status to 'Rented'.
+            result['message'] = 'Tenant assigned successfully! Property is now Rented.'
+            
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"!!! ERROR in /api/owner/assign_tenant: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+# --- ADD THIS NEW ROUTE ---
+@app.route('/api/owner/end_tenancy', methods=['POST'])
+def end_tenancy():
+    """Ends a tenancy by calling the sp_checkout_tenant stored procedure."""
+    if session.get('role') != 'owner':
+        return jsonify({'success': False, 'error': 'Unauthorized'})
+        
+    data = request.json
+    occupancy_id = data.get('occupancy_id')
+    owner_id = session.get('user_id')
+
+    try:
+        # Huge security check:
+        # Check if this owner actually owns the property associated with this occupancy
+        check_query = """
+            SELECT p.owner_id 
+            FROM OCCUPANCY o
+            JOIN PROPERTY p ON o.property_id = p.property_id
+            WHERE o.occupancy_id = %s
+        """
+        check = db.execute_query(check_query, (occupancy_id,))
+        
+        if not check['success'] or not check['data']:
+             return jsonify({'success': False, 'error': 'Occupancy record not found.'})
+        if check['data'][0]['owner_id'] != owner_id:
+            return jsonify({'success': False, 'error': 'Unauthorized'})
+
+        # Call the Stored Procedure to end the tenancy
+        query = "CALL sp_checkout_tenant(%s, CURDATE())"
+        result = db.execute_query(query, (occupancy_id,), fetch=False)
+        
+        if result['success']:
+            # The trg_update_status_on_checkout trigger
+            # will automatically set the property status to 'Available'.
+            result['message'] = 'Tenancy ended. Property is now Available.'
+            
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"!!! ERROR in /api/owner/end_tenancy: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+
 
 # ==================== TENANT ROUTES ====================
 
@@ -488,10 +642,13 @@ def tenant_rentals():
             # Calculate if rent is due (simplified - check if current month payment exists)
             current_month = datetime.now().strftime('%Y-%m')
             rental['rent_due'] = True
-            for payment in rental['payments']:
-                if payment['month_year'] == current_month and payment['status'] in ['Paid', 'Pending']:
-                    rental['rent_due'] = False
-                    break
+            if rental['end_date'] is not None: # If tenancy is over, rent is not due
+                 rental['rent_due'] = False
+            else:
+                for payment in rental['payments']:
+                    if payment['month_year'] == current_month and payment['status'] in ['Paid', 'Pending']:
+                        rental['rent_due'] = False
+                        break
     
     return jsonify(result)
 
@@ -521,9 +678,10 @@ def submit_review():
         result['message'] = 'Review submitted successfully'
     else:
         # Check if duplicate review trigger fired
-        if 'duplicate' in result.get('error', '').lower():
+        if result.get('error') and 'trg_prevent_duplicate_review' in result.get('error', ''):
             result['message'] = 'You have already reviewed this property'
-    
+            result['error'] = 'You have already reviewed this property' # Make error clear
+        
     return jsonify(result)
 
 @app.route('/api/tenant/request-rent', methods=['POST'])
@@ -579,16 +737,21 @@ def browse_properties():
     JOIN OWNER o ON p.owner_id = o.owner_id
     ORDER BY p.city, p.monthly_rent
     """
-    result = db.execute_query(query)
-    
-    if result['success']:
-        # Get average rating for each property
-        for prop in result['data']:
-            avg_query = "SELECT fn_get_avg_rating(%s) AS avg_rating"
-            avg_result = db.execute_query(avg_query, (prop['property_id'],))
-            prop['avg_rating'] = avg_result['data'][0]['avg_rating'] if avg_result['success'] else None
-    
-    return jsonify(result)
+    # Added try/except and () fix
+    try:
+        result = db.execute_query(query, ())
+        
+        if result['success']:
+            # Get average rating for each property
+            for prop in result['data']:
+                avg_query = "SELECT fn_get_avg_rating(%s) AS avg_rating"
+                avg_result = db.execute_query(avg_query, (prop['property_id'],))
+                prop['avg_rating'] = (avg_result['data'][0]['avg_rating'] or 0) if (avg_result['success'] and avg_result['data']) else 0
+        
+        return jsonify(result)
+    except Exception as e:
+        print(f"!!! ERROR in /api/properties/browse: {e}")
+        return jsonify({'success': False, 'error': str(e)})
 
 if __name__ == '__main__':
     debug_mode = os.getenv('FLASK_DEBUG', 'False') == 'True'
