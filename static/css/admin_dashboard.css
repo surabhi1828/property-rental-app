@@ -1,0 +1,296 @@
+/* ==================================== */
+/* ADMIN DASHBOARD STYLING              */
+/* ==================================== */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', 'Segoe UI', Tahoma, sans-serif;
+    background-color: #f4f7f6; /* Light gray page background */
+    color: #333;
+    line-height: 1.6;
+}
+
+.dashboard-wrapper {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* ==================================== */
+/* SIDEBAR (Dark, matches target)       */
+/* ==================================== */
+.sidebar {
+    width: 250px;
+    background: #2c3e50; /* Dark blue/grey */
+    color: #ecf0f1;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    height: 100%;
+}
+
+.sidebar-header {
+    padding: 20px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: 700;
+    border-bottom: 1px solid #34495e;
+}
+
+.sidebar-nav {
+    flex-grow: 1;
+    padding: 20px 0;
+}
+
+.sidebar-nav a {
+    display: block;
+    padding: 15px 30px;
+    text-decoration: none;
+    color: #bdc3c7;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+}
+
+.sidebar-nav a:hover,
+.sidebar-nav a.active {
+    background: #34495e;
+    color: #ffffff;
+    border-left-color: #3498db; /* Blue accent */
+}
+
+/* ==================================== */
+/* MAIN CONTENT AREA                    */
+/* ==================================== */
+.main-content {
+    flex-grow: 1;
+    margin-left: 250px; /* Offset by sidebar width */
+    display: flex;
+    flex-direction: column;
+}
+
+/* ==================================== */
+/* TOP NAVBAR (Light, matches target)   */
+/* ==================================== */
+.top-navbar {
+    background: #ffffff;
+    padding: 15px 30px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 900;
+}
+
+.top-navbar h1 {
+    font-size: 24px;
+    font-weight: 600;
+    color: #333;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.user-info span {
+    font-weight: 500;
+}
+
+.btn-logout {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+}
+.btn-logout:hover {
+    background: #c0392b;
+}
+
+/* ==================================== */
+/* PAGE CONTENT (Dashboard, Tables)     */
+/* ==================================== */
+.page-content {
+    padding: 30px;
+}
+
+/* Dashboard Cards (from target) */
+.dashboard-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 25px;
+}
+
+.card {
+    background: white;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.07);
+}
+
+.card h3 {
+    font-size: 20px;
+    font-weight: 500;
+    color: #555;
+    margin-bottom: 10px;
+}
+
+.card p {
+    font-size: 32px;
+    font-weight: 700;
+}
+.card-blue { border-left: 5px solid #3498db; }
+.card-blue p { color: #3498db; }
+.card-red { border-left: 5px solid #e74c3c; }
+.card-red p { color: #e74c3c; }
+.card-green { border-left: 5px solid #2ecc71; }
+.card-green p { color: #2ecc71; }
+
+
+/* Tables for lists */
+.content-section {
+    display: none; /* All sections hidden by default */
+}
+.content-section.active {
+    display: block; /* JS makes the active one visible */
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    background: #ffffff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+th, td {
+    padding: 15px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+th {
+    background: #f4f7f6;
+    font-weight: 600;
+}
+
+tbody tr:hover {
+    background: #fafafa;
+}
+
+/* Property Details Card (from target) */
+.property-detail-card {
+    background: #ffffff;
+    border-radius: 5px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    padding: 25px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 30px;
+}
+
+.detail-block h4 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.detail-block p {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 8px;
+}
+
+.detail-block p strong {
+    font-weight: 600;
+    color: #111;
+}
+
+.status-badge {
+    padding: 5px 10px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    display: inline-block;
+}
+.status-available { background-color: #d1fae5; color: #065f46; }
+.status-rented { background-color: #fee2e2; color: #991b1b; }
+
+
+/* ==================================== */
+/* PROPERTY CARD STYLES (Copied from home.css) */
+/* ==================================== */
+
+.property-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.property-card:hover {
+    box-shadow: 0 8px 20px rgba(0,0,0,0.07);
+    transform: translateY(-5px);
+}
+
+.property-card-content {
+    padding: 25px;
+    display: grid;
+    /* This creates the 3-column layout */
+    grid-template-columns: 1fr 1fr 1fr; 
+    gap: 20px;
+}
+
+.detail-block h4 {
+    font-size: 1rem; /* 16px */
+    font-weight: 600;
+    color: #4a55e1; /* Brand color for heading */
+    margin-bottom: 12px;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 8px;
+}
+
+.detail-block p {
+    font-size: 0.9rem; /* 14.4px */
+    color: #555;
+    margin-bottom: 6px;
+}
+
+.detail-block p strong {
+    font-weight: 600;
+    color: #111;
+    display: inline-block;
+    min-width: 100px; /* Aligns the values */
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .property-card-content {
+        /* Stack columns on mobile */
+        grid-template-columns: 1fr; 
+    }
+}

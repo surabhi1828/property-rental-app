@@ -3,93 +3,289 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - Property Rental System</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <title>Admin Dashboard</title>
+    <!-- Links to the dashboard stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_dashboard.css') }}">
 </head>
 <body>
-    <div class="container">
-        <div class="dashboard-header">
-            <h1>Admin Dashboard</h1>
-            <div class="user-info">
-                <span>Welcome, {{ user_name }}</span>
-                <a href="/logout" class="btn logout-btn">Logout</a>
+
+    <div class="dashboard-wrapper">
+        
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                FindHome
             </div>
-        </div>
+            <div class="sidebar-nav">
+                <!-- Data-view attribute tells JS which section to show -->
+                <a href="#dashboard" class="nav-link active" data-view="dashboard">Home</a>
+                <a href="{{ url_for('signup_page') }}">Register</a>
+                <a href="#complaints" class="nav-link" data-view="complaints">Complaint List</a>
+            </div>
+        </nav>
 
-        <h2>Properties Overview</h2>
-        <div id="propertiesContainer"></div>
-    </div>
+        <!-- Main Content (Navbar + Page) -->
+        <main class="main-content">
 
-    <script>
-        async function loadOverview() {
-            try {
-                const response = await fetch('/api/admin/overview');
-                const result = await response.json();
-                
-                if (result.success) {
-                    displayProperties(result.data);
-                } else {
-                    alert('Failed to load data: ' + result.error);
-                }
-            } catch (error) {
-                alert('Error loading data: ' + error.message);
-            }
-        }
+            <!-- Top Navbar -->
+            <header class="top-navbar">
+                <h1 id="page-title">Dashboard</h1>
+                <div class="user-info">
+                    <span>Welcome, {{ session.user_name }}</span>
+                    <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
+                </div>
+            </header>
 
-        function displayProperties(properties) {
-            const container = document.getElementById('propertiesContainer');
-            container.innerHTML = '';
-            
-            properties.forEach(prop => {
-                const statusClass = `status-${prop.status.toLowerCase()}`;
-                const avgRating = prop.avg_rating ? prop.avg_rating.toFixed(1) : 'N/A';
-                
-                const card = document.createElement('div');
-                card.className = 'property-card';
-                card.innerHTML = `
-                    <h3>${prop.address}</h3>
-                    <p><strong>City:</strong> ${prop.city || 'N/A'}</p>
-                    <p><strong>Description:</strong> ${prop.description || 'N/A'}</p>
-                    <p><strong>Size:</strong> ${prop.sq_footage || 'N/A'} sq ft</p>
-                    <p><strong>Monthly Rent:</strong> ₹${prop.monthly_rent}</p>
-                    <p><strong>Status:</strong> <span class="status-badge ${statusClass}">${prop.status}</span></p>
-                    <p><strong>Average Rating:</strong> ${avgRating} ⭐</p>
-                    
-                    <div class="owner-info">
-                        <h4>Owner Information</h4>
-                        <p><strong>Name:</strong> ${prop.owner_name}</p>
-                        <p><strong>Email:</strong> ${prop.owner_email || 'N/A'}</p>
-                        <p><strong>Phone:</strong> ${prop.owner_phone || 'N/A'}</p>
+            <!-- Page Content (Dynamic) -->
+            <div class="page-content">
+
+                <!-- 1. Dashboard View (Default) -->
+                <section id="dashboard-view" class="content-section active">
+                    <div class="dashboard-cards">
+                        <div class="card card-blue" onclick="showView('users')">
+                            <h3>Total Users</h3>
+                            <p id="total-users-stat">0</p>
+                        </div>
+                        <div class="card card-red" onclick="showView('apartments')">
+                            <h3>Total Properties</h3>
+                            <p id="total-properties-stat">0</p>
+                        </div>
+                        <!-- <div class="card card-green" onclick="showView('complaints')">
+                            <h3>Total Complaints</h3>
+                            <p id="total-complaints-stat">0</p>
+                        </div> -->
                     </div>
-                    
-                    ${prop.tenant_name ? `
-                        <div class="tenant-info">
-                            <h4>Current Tenant</h4>
-                            <p><strong>Name:</strong> ${prop.tenant_name}</p>
-                            <p><strong>Email:</strong> ${prop.tenant_email || 'N/A'}</p>
-                            <p><strong>Start Date:</strong> ${prop.start_date || 'N/A'}</p>
-                        </div>
-                    ` : '<p><em>No current tenant</em></p>'}
-                    
-                    ${prop.reviews.length > 0 ? `
-                        <div class="reviews">
-                            <h4>Reviews</h4>
-                            ${prop.reviews.map(r => `
-                                <div class="review">
-                                    <p><strong>${r.tenant_name}</strong> - ${r.rating} ⭐ (${r.review_date})</p>
-                                    <p>${r.comment || 'No comment'}</p>
-                                </div>
-                            `).join('')}
-                        </div>
-                    ` : '<p><em>No reviews yet</em></p>'}
-                `;
-                container.appendChild(card);
-            });
+                </section>
+
+                <!-- 2. Users List View (Hidden) -->
+                <section id="users-view" class="content-section">
+                    <h2>List of Users</h2>
+                    <table id="users-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Role</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Data will be injected here by JS -->
+                        </tbody>
+                    </table>
+                </section>
+
+                <!-- 3. Apartments List View (Hidden) - NOW A DIV FOR CARDS -->
+                <section id="apartments-view" class="content-section">
+                    <h2>List of Apartment Details</h2>
+                    <div id="apartments-list">
+                        <!-- Property cards will be injected here by JS -->
+                    </div>
+                </section>
+
+                <!-- 4. Complaints List View (Hidden) -->
+                <section id="complaints-view" class="content-section">
+                    <h2>List of Complaints (Reviews)</h2>
+                    <table id="complaints-table">
+                        <thead>
+                            <tr>
+                                <th>Review ID</th>
+                                <th>Property Address</th>
+                                <th>Tenant Name</th>
+                                <th>Rating</th>
+                                <th>Comment</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Data will be injected here by JS -->
+                        </tbody>
+                    </table>
+                </section>
+
+            </div> <!-- End Page Content -->
+        </main> <!-- End Main Content -->
+    </div> <!-- End Dashboard Wrapper -->
+
+<script>
+    // --- View Switching Logic ---
+    const allNavLinks = document.querySelectorAll('.sidebar-nav .nav-link');
+    const allContentSections = document.querySelectorAll('.content-section');
+    const pageTitle = document.getElementById('page-title');
+
+    function showView(viewId) {
+        allContentSections.forEach(section => section.classList.remove('active'));
+        allNavLinks.forEach(link => link.classList.remove('active'));
+
+        const targetSection = document.getElementById(viewId + '-view');
+        if (targetSection) targetSection.classList.add('active');
+
+        const targetLink = document.querySelector(`.nav-link[data-view="${viewId}"]`);
+        if (targetLink) {
+            targetLink.classList.add('active');
+            pageTitle.textContent = targetLink.textContent;
+        } else if (viewId === 'users') {
+             pageTitle.textContent = 'List of Users';
+        } else if (viewId === 'apartments') {
+            pageTitle.textContent = 'List of Apartment Details';
         }
 
-        // Load data on page load
-        loadOverview();
-    </script>
+        // Fetch data for the view
+        if (viewId === 'users') loadUsers();
+        if (viewId === 'apartments') loadApartments();
+        if (viewId === 'complaints') loadComplaints();
+    }
+
+    allNavLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const viewId = link.getAttribute('data-view');
+            showView(viewId);
+        });
+    });
+
+    // --- Data Fetching Logic ---
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDashboardStats();
+    });
+
+    // 1. Load Dashboard Stats
+    async function loadDashboardStats() {
+        try {
+            const response = await fetch('/api/admin/stats');
+            const stats = await response.json();
+            if (stats.success) {
+                document.getElementById('total-users-stat').textContent = stats.data.total_users;
+                document.getElementById('total-properties-stat').textContent = stats.data.total_properties;
+                document.getElementById('total-complaints-stat').textContent = stats.data.total_complaints;
+            }
+        } catch (err) { console.error('Error loading stats:', err); }
+    }
+
+    // 2. Load Users List
+    async function loadUsers() {
+        const tableBody = document.querySelector('#users-table tbody');
+        tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Loading...</td></tr>';
+        try {
+            const response = await fetch('/api/admin/all_users');
+            const result = await response.json();
+            tableBody.innerHTML = ''; 
+
+            if (result.success && result.data.length > 0) {
+                result.data.forEach(user => {
+                    const roleClass = user.role === 'Owner' ? 'status-rented' : 'status-available';
+                    tableBody.innerHTML += `
+                        <tr>
+                            <td>${user.id}</td>
+                            <td>${user.name}</td>
+                            <td>${user.email}</td>
+                            <td>${user.phone}</td>
+                            <td><span class="status-badge ${roleClass}">${user.role}</span></td>
+                        </tr>
+                    `;
+                });
+            } else if (result.success) {
+                 tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No users found.</td></tr>';
+            } else {
+                tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: red;">Error: ${result.error}</td></tr>`;
+            }
+        } catch (err) {
+            tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: red;">Error: ${err.message}</td></tr>`;
+        }
+    }
+
+    // 3. Load Apartments List (MODIFIED TO BUILD CARDS)
+    async function loadApartments() {
+        const listContainer = document.getElementById('apartments-list');
+        listContainer.innerHTML = '<p style="text-align:center;">Loading...</p>';
+        
+        try {
+            const response = await fetch('/api/admin/all_apartments');
+            const result = await response.json();
+            listContainer.innerHTML = ''; // Clear loading text
+
+            if (result.success && result.data.length > 0) {
+                result.data.forEach(prop => {
+                    const statusClass = prop.status === 'Available' ? 'status-available' : 'status-rented';
+                    const rent = parseFloat(prop.monthly_rent); // Fix for toFixed()
+                    
+                    // Build the card HTML
+                    listContainer.innerHTML += `
+                        <div class="property-card">
+                            <div class="property-card-content">
+                                <!-- Owner Details -->
+                                <div class="detail-block">
+                                    <h4>Owner Details</h4>
+                                    <p><strong>Owner:</strong> ${prop.owner_name}</p>
+                                    <p><strong>Contact:</strong> ${prop.owner_phone}</p>
+                                    <p><strong>Email:</strong> ${prop.owner_email}</p>
+                                </div>
+                                
+                                <!-- Property Details -->
+                                <div class="detail-block">
+                                    <h4>Property Details</h4>
+                                    <p><strong>Rent:</strong> ₹${rent.toFixed(2)} /mo</p>
+                                    <p><strong>Address:</strong> ${prop.address}</p>
+                                    <p><strong>City:</strong> ${prop.city}</p>
+                                    <p><strong>Sq. Ft:</strong> ${prop.sq_footage} sq.ft.</p>
+                                </div>
+
+                                <!-- Other Details -->
+                                <div class="detail-block">
+                                    <h4>Other Details</h4>
+                                    <p><strong>Description:</strong> ${prop.description}</p>
+                                    <p><strong>Tenant:</strong> ${prop.tenant_name || 'N/A'}</p>
+                                    <span class="status-badge ${statusClass}">${prop.status}</span>
+                                </div>
+                                
+                            </div>
+                        </div>
+                    `;
+                });
+            } else if (result.success) {
+                listContainer.innerHTML = '<p style="text-align:center;">No properties found.</p>';
+            } else {
+                listContainer.innerHTML = `<p style="text-align:center; color: red;">Error: ${result.error}</p>`;
+            }
+        } catch (err) {
+             listContainer.innerHTML = `<p style="text-align:center; color: red;">Error: ${err.message}</p>`;
+        }
+    }
+
+    // 4. Load Complaints List
+    async function loadComplaints() {
+        const tableBody = document.querySelector('#complaints-table tbody');
+        tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Loading...</td></tr>';
+        
+        try {
+            const response = await fetch('/api/admin/all_complaints');
+            const result = await response.json();
+            tableBody.innerHTML = ''; 
+
+            if (result.success && result.data.length > 0) {
+                result.data.forEach(review => {
+                    tableBody.innerHTML += `
+                        <tr>
+                            <td>${review.review_id}</td>
+                            <td>${review.address}</td>
+                            <td>${review.tenant_name}</td>
+                            <td>${review.rating} ⭐</td>
+                            <td>${review.comment}</td>
+                            <td>${new Date(review.review_date).toLocaleDateString()}</td>
+                        </tr>
+                    `;
+                });
+            } else if (result.success) {
+                tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No complaints found.</td></tr>';
+            } else {
+                tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: red;">Error: ${result.error}</td></tr>`;
+            }
+        } catch (err) {
+            tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: red;">Error: ${err.message}</td></tr>`;
+        }
+    }
+</script>
+
 </body>
 </html>

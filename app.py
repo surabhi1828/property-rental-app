@@ -164,6 +164,8 @@ def logout():
 
 # ==================== ADMIN ROUTES ====================
 
+# ==================== ADMIN ROUTES (Safer Version) ====================
+
 @app.route('/admin')
 def admin_dashboard():
     """Admin dashboard"""
@@ -171,56 +173,103 @@ def admin_dashboard():
         return redirect(url_for('index'))
     return render_template('admin_dashboard.html')
 
-@app.route('/api/admin/overview')
-def admin_overview():
-    """Get complete overview for admin"""
-    query = """
-    SELECT 
-        p.property_id,
-        p.address,
-        p.city,
-        p.description,
-        p.sq_footage,
-        p.monthly_rent,
-        p.status,
-        o.owner_id,
-        o.name AS owner_name,
-        o.email AS owner_email,
-        o.phone AS owner_phone,
-        t.tenant_id,
-        t.name AS tenant_name,
-        t.email AS tenant_email,
-        occ.start_date,
-        occ.end_date
-    FROM PROPERTY p
-    LEFT JOIN OWNER o ON p.owner_id = o.owner_id
-    LEFT JOIN OCCUPANCY occ ON p.property_id = occ.property_id AND occ.end_date IS NULL
-    LEFT JOIN TENANT t ON occ.tenant_id = t.tenant_id
-    ORDER BY p.property_id
-    """
-    result = db.execute_query(query)
-    
-    if result['success']:
-        # Get reviews for each property
-        for prop in result['data']:
-            review_query = """
-            SELECT r.rating, r.comment, r.review_date, t.name AS tenant_name
-            FROM REVIEW r
-            JOIN TENANT t ON r.tenant_id = t.tenant_id
-            WHERE r.property_id = %s
-            ORDER BY r.review_date DESC
-            """
-            reviews = db.execute_query(review_query, (prop['property_id'],))
-            prop['reviews'] = reviews['data'] if reviews['success'] else []
-            
-            # Get average rating using function
-            avg_query = "SELECT fn_get_avg_rating(%s) AS avg_rating"
-            avg_result = db.execute_query(avg_query, (prop['property_id'],))
-            prop['avg_rating'] = avg_result['data'][0]['avg_rating'] if avg_result['success'] else None
-        
-        return jsonify(result)
-    return jsonify(result)
 
+# --- NEW ADMIN API ROUTES ---
+
+@app.route('/api/admin/stats')
+def admin_stats():
+    """Get dashboard card statistics."""
+    if session.get('role') != 'admin':
+        return jsonify({'success': False, 'error': 'Unauthorized'})
+    try:
+        query_users = "SELECT COUNT(*) AS count FROM (SELECT owner_id FROM OWNER UNION ALL SELECT tenant_id FROM TENANT) AS users"
+        users_result = db.execute_query(query_users, ())
+        
+        query_props = "SELECT COUNT(*) AS count FROM PROPERTY"
+        props_result = db.execute_query(query_props, ())
+        
+        query_reviews = "SELECT COUNT(*) AS count FROM REVIEW"
+        reviews_result = db.execute_query(query_reviews, ())
+
+        stats = {
+            'total_users': users_result['data'][0]['count'] if users_result['success'] else 0,
+            'total_properties': props_result['data'][0]['count'] if props_result['success'] else 0,
+            'total_reviews': (reviews_result['data'][0]['count'] or 0) if (reviews_result['success'] and reviews_result['data']) else 0
+        }
+        return jsonify({'success': True, 'data': stats})
+    except Exception as e:
+        print(f"!!! ERROR in /api/admin/stats: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/admin/all_users')
+def admin_all_users():
+    """Get all owners and tenants."""
+    if session.get('role') != 'admin':
+        return jsonify({'success': False, 'error': 'Unauthorized'})
+    try:
+        query = """
+            (SELECT owner_id AS id, name, email, phone, 'Owner' AS role FROM OWNER)
+            UNION ALL
+            (SELECT tenant_id AS id, name, email, phone, 'Tenant' AS role FROM TENANT)
+            ORDER BY name
+        """
+        result = db.execute_query(query, ())
+        return jsonify(result)
+    except Exception as e:
+        print(f"!!! ERROR in /api/admin/all_users: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/admin/all_apartments')
+def admin_all_apartments():
+    """Get all properties with details."""
+    if session.get('role') != 'admin':
+        return jsonify({'success': False, 'error': 'Unauthorized'})
+    try:
+        query = """
+        SELECT 
+            p.property_id, p.address, p.city, p.description, p.sq_footage, 
+            p.monthly_rent, p.status,
+            o.name AS owner_name, o.email AS owner_email, o.phone AS owner_phone,
+            t.name AS tenant_name
+        FROM PROPERTY p
+        JOIN OWNER o ON p.owner_id = o.owner_id
+        LEFT JOIN OCCUPANCY occ ON p.property_id = occ.property_id AND occ.end_date IS NULL
+        LEFT JOIN TENANT t ON occ.tenant_id = t.tenant_id
+        ORDER BY p.property_id
+        """
+        result = db.execute_query(query, ())
+        return jsonify(result)
+    except Exception as e:
+        print(f"!!! ERROR in /api/admin/all_apartments: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/admin/all_complaints')
+def admin_all_complaints():
+    """Get all reviews (complaints)."""
+    if session.get('role') != 'admin':
+        return jsonify({'success': False, 'error': 'Unauthorized'})
+    try:
+        query = """
+        SELECT 
+            r.review_id, 
+            r.rating, 
+            r.comment, 
+            r.review_date,
+            t.name AS tenant_name,
+            p.address AS address
+        FROM REVIEW r
+        JOIN TENANT t ON r.tenant_id = t.tenant_id
+        JOIN PROPERTY p ON r.property_id = p.property_id
+        ORDER BY r.review_date DESC
+        """
+        result = db.execute_query(query, ())
+        return jsonify(result)
+    except Exception as e:
+        print(f"!!! ERROR in /api/admin/all_complaints: {e}")
+        return jsonify({'success': False, 'error': str(e)})
 # ==================== OWNER ROUTES ====================
 
 @app.route('/owner')
