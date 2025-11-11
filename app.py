@@ -578,6 +578,49 @@ def end_tenancy():
     except Exception as e:
         print(f"!!! ERROR in /api/owner/end_tenancy: {e}")
         return jsonify({'success': False, 'error': str(e)})
+    
+
+@app.route('/api/owner/payments')
+def get_owner_payments():
+    """Get all payments for a specific owner, filterable by month."""
+    if session.get('role') != 'owner':
+        return jsonify({'success': False, 'error': 'Unauthorized'})
+        
+    owner_id = session.get('user_id')
+    
+    # Get the month from the query string, e.g., /api/owner/payments?month=2025-11
+    # Default to the current month if not provided
+    selected_month = request.args.get('month', datetime.now().strftime('%Y-%m'))
+    
+    try:
+        query = """
+        SELECT 
+            pay.payment_id,
+            pay.amount,
+            pay.payment_date,
+            pay.month_year,
+            pay.method,
+            pay.status,
+            t.name AS tenant_name,
+            p.address AS property_address
+        FROM PAYMENTS pay
+        JOIN OCCUPANCY occ ON pay.occupancy_id = occ.occupancy_id
+        JOIN PROPERTY p ON occ.property_id = p.property_id
+        JOIN TENANT t ON occ.tenant_id = t.tenant_id
+        WHERE 
+            p.owner_id = %s 
+            AND pay.month_year = %s
+        ORDER BY pay.payment_date DESC
+        """
+        
+        result = db.execute_query(query, (owner_id, selected_month))
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"!!! ERROR in /api/owner/payments: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+# ... (rest of your app.py file) ...
 
 
 # ==================== TENANT ROUTES ====================
