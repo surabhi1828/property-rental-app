@@ -10,7 +10,8 @@ Public-Facing Homepage: A dynamic, searchable homepage that displays all "Availa
 
 Role-Based Access Control: The system provides three unique roles with separate dashboards and permissions:
 
-Admin:
+# Admin:
+
 View dashboard statistics (total users, total properties).
 
 View and manage all users (Owners and Tenants).
@@ -21,7 +22,8 @@ View a "Complaint List" of all reviews submitted by tenants.
 
 View a "Rating Report" that analyzes the average rating of all properties.
 
-Owner:
+# Owner:
+
 View a personalized dashboard with stats (e.g., "Total Properties," "Properties Rented").
 
 Full CRUD: Register new properties, View their own properties, Edit their property details, and Delete their properties.
@@ -32,7 +34,8 @@ End a tenancy (which automatically sets the property back to "Available").
 
 View a Monthly Payment Report to track income.
 
-Tenant:
+# Tenant:
+
 View a personalized dashboard showing rent status.
 
 View "My Rentals" (both current and past).
