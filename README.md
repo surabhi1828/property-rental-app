@@ -2,6 +2,7 @@
 
 This is a full-stack web application for a property rental system, built as a DBMS mini-project. It uses a Python Flask backend to manage a MySQL database and a dynamic HTML/CSS/JavaScript frontend.
 The core concept of the project is to connect property owners directly with tenants, eliminating the need for a broker. The system features three distinct user roles, each with a custom dashboard and permissions: Admin, Owner, and Tenant.
+
 ---
 # Key Features
 
@@ -29,6 +30,7 @@ View "My Rentals" (both current and past).
 Make Payments for their current rental.
 Browse all "Available" properties and "Request to Rent".
 Submit Reviews (with ratings and comments) for properties they have rented.
+
 ---
 # Technology Stack
 
@@ -36,6 +38,7 @@ Backend: Python (Flask)
 Database: MySQL
 Frontend: HTML5, CSS3, and JavaScript (ES6+)
 API: RESTful API routes to connect the frontend JavaScript (using fetch) to the Flask backend.
+
 ---
 # Installation & Setup
 
@@ -46,21 +49,7 @@ Step 2: Install dependencies
 
 Step 3: Set up the Database
 
-Step 4: Set up Environment Variables:
-
-Create a file named .env in the root project folder (property-rental-app/).
-
-Copy the contents of .env.example (if you have one) or add the following, replacing with your MySQL details:
-
-# .env file
-FLASK_SECRET_KEY='a_very_secret_random_key_here'
-FLASK_DEBUG=True
-
-DB_HOST='localhost'
-DB_USER='your_mysql_username'
-DB_PASSWORD='your_mysql_password'
-DB_NAME='rental_db'
-
+Step 4: Set up Environment Variables
 
 Step 5: Run the application: 
      python app.py
