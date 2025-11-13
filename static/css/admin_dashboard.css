@@ -294,3 +294,14 @@ tbody tr:hover {
         grid-template-columns: 1fr; 
     }
 }
+
+
+
+/* ==================================== */
+/* RATING REPORT STYLES                 */
+/* ==================================== */
+
+.rating-stars {
+    font-weight: 700;
+    color: #f39c12; /* Yellow/Gold color */
+}

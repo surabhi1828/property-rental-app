@@ -21,6 +21,7 @@
                 <a href="#dashboard" class="nav-link active" data-view="dashboard">Home</a>
                 <a href="{{ url_for('signup_page') }}">Register</a>
                 <a href="#complaints" class="nav-link" data-view="complaints">Complaint List</a>
+                <a href="#analysis" class="nav-link" data-view="analysis">Rating Report</a>
             </div>
         </nav>
 
@@ -104,6 +105,23 @@
                     </table>
                 </section>
 
+                <section id="analysis-view" class="content-section">
+                    <h2>Property Rating Analysis</h2>
+                    <table id="analysis-table">
+                        <thead>
+                            <tr>
+                                <th>Property ID</th>
+                                <th>Address</th>
+                                <th>Owner</th>
+                                <th>Average Rating</th>
+                            </tr>
+                        </thead>
+                        <tbody id="analysis-table-body">
+                            <!-- Data will be injected here by JS -->
+                        </tbody>
+                    </table>
+                </section>
+
             </div> <!-- End Page Content -->
         </main> <!-- End Main Content -->
     </div> <!-- End Dashboard Wrapper -->
@@ -135,6 +153,7 @@
         if (viewId === 'users') loadUsers();
         if (viewId === 'apartments') loadApartments();
         if (viewId === 'complaints') loadComplaints();
+        if (viewId === 'analysis') loadAnalysisReport();
     }
 
     allNavLinks.forEach(link => {
@@ -285,6 +304,39 @@
             tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: red;">Error: ${err.message}</td></tr>`;
         }
     }
+
+    // 5. Load Rating Analysis Report
+    async function loadAnalysisReport() {
+        const tableBody = document.querySelector('#analysis-table-body');
+        tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Loading...</td></tr>';
+        
+        try {
+            const response = await fetch('/api/admin/rating_report');
+            const result = await response.json();
+            tableBody.innerHTML = ''; // Clear old data
+
+            if (result.success && result.data.length > 0) {
+                result.data.forEach(prop => {
+                    const rating = parseFloat(prop.average_rating);
+                    tableBody.innerHTML += `
+                        <tr>
+                            <td>${prop.property_id}</td>
+                            <td>${prop.address}, ${prop.city}</td>
+                            <td>${prop.owner_name}</td>
+                            <td class="rating-stars">${rating.toFixed(2)} ⭐</td>
+                        </tr>
+                    `;
+                });
+            } else if (result.success) {
+                tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No properties found to analyze.</td></tr>';
+            } else {
+                tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color: red;">Error: ${result.error}</td></tr>`;
+            }
+        } catch (err) {
+            tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color: red;">Error: ${err.message}</td></tr>`;
+        }
+    }
+
 </script>
 
 </body>

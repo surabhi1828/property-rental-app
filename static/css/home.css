@@ -23,47 +23,56 @@ body {
     padding: 0 20px;
 }
 
+
 /* ==================================== */
-/* NAVBAR SECTION (Full-Width)          */
+/* NAVBAR SECTION (Transparent)         */
 /* ==================================== */
 .navbar-section {
-    background: #ffffff;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    position: absolute; /* Lifts the navbar ON TOP of the page */
+    width: 100%;
+    top: 0;
+    left: 0;
+    background: transparent; /* Makes it see-through */
+    z-index: 1000; /* Ensures it's on top of the image */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2); /* Faint line */
 }
 
 .navbar-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    height: 70px;
+ display: flex;
+ justify-content: space-between;
+ align-items: center;
+ height: 70px;
 }
 
 .navbar-brand {
-    font-size: 24px;
-    font-weight: 700;
-    color: #333;
-    text-decoration: none;
+ font-size: 24px;
+ font-weight: 700;
+ color: #ffffff; /* CHANGED to white */
+ text-decoration: none;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.4); /* Adds shadow for readability */
 }
 
 .navbar-links a {
-    margin-left: 25px;
-    text-decoration: none;
-    color: #555;
-    font-weight: 500;
-    font-size: 14px;
-    text-transform: uppercase;
-    transition: color 0.3s ease;
+ margin-left: 25px;
+ text-decoration: none;
+ color: #ffffff; /* CHANGED to white */
+ font-weight: 500;
+ font-size: 14px;
+ text-transform: uppercase;
+ transition: color 0.3s ease;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.4); /* Adds shadow */
 }
 
 .navbar-links a:hover {
-    color: #007bff;
+  color: #dddddd; /* Light gray hover */
 }
 
 .navbar-links a.btn-register {
-    background: #007bff;
-    color: white;
-    padding: 8px 16px;
-    border-radius: 5px;
+   background: #007bff;
+   color: white;
+   padding: 8px 16px;
+   border-radius: 5px;
+    text-shadow: none; /* No shadow on the button */
 }
 
 /* ==================================== */
@@ -224,29 +233,79 @@ body {
     }
 }
 
-/* ==================================== */
-/* HERO SECTION (ADD THIS TO HOME.CSS)  */
-/* ==================================== */
+
+
 .hero-section {
-    /* Full screen height minus the navbar height */
-    height: calc(100vh - 70px); 
-    background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://placehold.co/1600x900/4a55e1/ffffff?text=Find+Home+Together') center/cover no-repeat;
+    position: relative;
+    height: 100vh; /* 70% of the screen height */
     
-    /* Flexbox to center the text */
+    /* THIS IS THE FIX: */
+    background-image: url('../images/background1.webp');
+    background-size: cover;
+    background-position: center;
+    
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
     text-align: center;
     color: white;
 }
 
-.hero-content h2 {
-    font-size: 3.5rem; /* 56px */
-    font-weight: 700;
-    margin-bottom: 10px;
+/* This adds the dark overlay */
+.hero-section::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1;
 }
 
-.hero-content p {
-    font-size: 1.25rem; /* 20px */
-    color: #e0e0e0;
+.hero-content {
+    position: relative; /* Sits on top of the overlay */
+    z-index: 2;
+    max-width: 800px;
+    padding: 20px;
+}
+
+.hero-content .subtitle {
+    font-size: 1.2rem;
+    font-weight: 500;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    color: #f0f0f0;
+}
+
+.hero-content h1 {
+    font-size: 3.5rem; /* Large text */
+    margin-bottom: 20px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5); /* Shadow */
+}
+
+.hero-content .description {
+    font-size: 1.1rem;
+    margin-bottom: 30px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.hero-content .btn-primary {
+    background-color: #8e44ad; /* Purple */
+    color: white;
+    padding: 15px 30px;
+    border: none;
+    border-radius: 5px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    text-decoration: none;
+}
+.hero-content .btn-primary:hover {
+    background-color: #9b59b6;
 }

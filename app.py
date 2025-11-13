@@ -263,6 +263,38 @@ def admin_all_complaints():
     except Exception as e:
         print(f"!!! ERROR in /api/admin/all_complaints: {e}")
         return jsonify({'success': False, 'error': str(e)})
+    
+
+@app.route('/api/admin/rating_report')
+def admin_rating_report():
+    """
+    Fetches all properties and calculates their average rating
+    by explicitly calling the fn_get_avg_rating() SQL function.
+    This is a perfect demo for showing the use of SQL functions.
+    """
+    if session.get('role') != 'admin':
+        return jsonify({'success': False, 'error': 'Unauthorized'})
+    
+    try:
+        # This query calls your function for every row
+        query = """
+        SELECT 
+            p.property_id, 
+            p.address, 
+            p.city, 
+            o.name AS owner_name,
+            fn_get_avg_rating(p.property_id) AS average_rating
+        FROM PROPERTY p
+        JOIN OWNER o ON p.owner_id = o.owner_id
+        ORDER BY average_rating DESC;
+        """
+        
+        result = db.execute_query(query, ())
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"!!! ERROR in /api/admin/rating_report: {e}")
+        return jsonify({'success': False, 'error': str(e)})
 
 # ==================== OWNER ROUTES ====================
 
